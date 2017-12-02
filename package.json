@@ -16,6 +16,7 @@
     "webpack-dev-server": "^2.9.5"
   },
   "dependencies": {
-    "chart.js": "^2.7.1"
+    "chart.js": "^2.7.1",
+    "pixi.js": "^4.6.2"
   }
 }

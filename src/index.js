@@ -30,6 +30,7 @@ function f(ex) {
 	spr.interactive = true;
 	window.aaa = app;
 	app.stage.addChild(spr);
+	app.stage.interactive = true;
 	var skip_iters = 100;
 	var iters = 300;
 	
@@ -55,7 +56,7 @@ function f(ex) {
 		var lc = ev.data.global;
 		upd_rect(initial_pg, lc.x - initial_pg.x, lc.y - initial_pg.y);
 	})
-	spr.on('pointerup', (ev) => {
+	app.stage.on('pointerup', (ev) => {
 		if(initial_p == null) return;
 		var gd = ev.data.getLocalPosition(spr)
 		//console.log(initial_p, gd);
@@ -66,9 +67,16 @@ function f(ex) {
 		
 		//console.log(x0, y0, x1, y1);
 		//console.log(cur_wnd)
-		if(x0 != x1 && y0 != y1) {
-			cur_wnd = new PIXI.Rectangle(x0 * cur_wnd.width + cur_wnd.x, y0 * cur_wnd.height + cur_wnd.y, (x1 - x0) * cur_wnd.width, (y1 - y0) * cur_wnd.height);
-			rr(cur_wnd);
+		var w = new PIXI.Rectangle(x0 * cur_wnd.width + cur_wnd.x, y0 * cur_wnd.height + cur_wnd.y, (x1 - x0) * cur_wnd.width, (y1 - y0) * cur_wnd.height);
+		
+		console.log(w.width)
+		if(x0 == x0+w/ww) {
+			//console.log('aaa')
+			return false;
+		}
+
+		if(w.x + w.width / ww != w.x && w.height != 0) {
+			rr(cur_wnd = w);
 		}
 		initial_p = initial_pg = null;
 		cnt.removeChildren();
@@ -93,6 +101,8 @@ function f(ex) {
 	function render(x0, y0, w, h) {
 		ctx.clearRect(0, 0, ww, hh);
 		var id = ctx.createImageData(ww, hh);
+		/*console.log(w, w/ww)
+		console.log(x0, x0+w, x0 == x0+w/ww)*/
 		for(var i = x0; i <= x0+w; i+=(w/ww)) {
 			//console.log(i);
 			var it = f(i);
@@ -104,7 +114,7 @@ function f(ex) {
 				var xx = (x * ww) | 0;
 				var yy = (y * hh) | 0;
 				if (yy < 0 || yy > ww) continue;
-				var ii = yy*ww*4+xx*4;
+				var ii = (yy*ww+xx)*4;
 				/*id.data[ii] = 0;
 				id.data[ii+1] = 0;
 				id.data[ii+2] = 0;*/
@@ -117,6 +127,7 @@ function f(ex) {
 		gtx.update();
 		//app.render();
 	}
+	
 	window.r = render;
 	rr(cur_wnd);
 //})
