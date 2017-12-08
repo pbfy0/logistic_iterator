@@ -62,18 +62,43 @@ class FunctionRenderer {
 		let rc = document.createElement('canvas');
 		rc.width = r_dim.x;
 		rc.height = r_dim.y;
-		this.tex = PIXI.Texture.fromCanvas(rc);		
+		this.r = PIXI.autoDetectRenderer({width: r_dim.x, height: r_dim.y, transparent: true});
+		this.tex = PIXI.Texture.fromCanvas(rc);
+		this.spr = new PIXI.Sprite(this.tex);
+		this.colorMatrix = new PIXI.filters.ColorMatrixFilter();
+		//this.colorMatrix.enabled = true;
+		//this.colorMatrix.negative();
+		this.spr.filters = [this.colorMatrix];
+
+		
+		this.otex = PIXI.Texture.fromCanvas(this.r.view);
+		//this.otex = null;
+		this.ospr = new PIXI.Sprite(this.otex);
 		this.rc = rc
 		
 		this.skip_iters = skip_iters
 		this.iters = iters
 		this.fn = f
 		this.f_dim = f_dim
-		this.darkness = darkness;
+		this._sd(darkness);
 		
 		this.ctx = this.rc.getContext('2d')
 		
 		this.redraw()
+	}
+	
+	_sd(d){ 
+		this.colorMatrix.matrix = 
+		[1, 0, 0, 0, 0,
+		 0, 1, 0, 0, 0,
+		 0, 0, 1, 0, 0,
+		 0, 0, 0, d, 0];
+	}
+	
+	set_darkness(d){
+		this._sd(d);
+		this.r.render(this.spr);
+		this.otex.update();
 	}
 	
 	loc_to_fn(coord) {
@@ -88,7 +113,6 @@ class FunctionRenderer {
 		this.ctx.clearRect(0, 0, this.rc.width, this.rc.height);
 		let id = this.ctx.createImageData(this.rc.width, this.rc.height);
 		const ww = this.rc.width, hh = this.rc.height;
-		const dk = this.darkness;
 		for(let i = rect.x; i <= rect.x+rect.width; i+=(rect.width/ww)) {
 			const it = this.fn(i);
 			const x = (i - rect.x) / rect.width;
@@ -100,11 +124,16 @@ class FunctionRenderer {
 				const yy = (y * hh) | 0;
 				if (yy < 0 || yy > ww) continue;
 				const ii = (yy*ww+xx)*4;
-				id.data[ii+3] += dk;
+				id.data[ii+3] += 1;//dk;
 			}
 		}
 		this.ctx.putImageData(id, 0, 0);
+		this.r.clear(0xffffff);
 		this.tex.update();
+		this.r.render(this.spr);
+		this.otex.update();
+		//this.otex = this.r.generateTexture(this.spr, PIXI.SCALE_MODES.NORMAL, 1);
+		//this.ospr.texture = this.otex;
 	}
 }
 const cc = new PIXI.Point(document.documentElement.clientWidth * window.devicePixelRatio, document.documentElement.clientHeight * window.devicePixelRatio);
@@ -115,16 +144,12 @@ app.view.style.width = app.renderer.width / window.devicePixelRatio + "px"
 const frw = (app.renderer.width - 100), frh = (app.renderer.height - 100);
 console.log(cc, app.renderer.width, app.renderer.height);
 const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2), f_dim: new PIXI.Rectangle(0, 0, 4, 1)});
-const gtx = frend.tex;
+window.f = frend;
+//const gtx = frend.otex;
 const ww = frend.rc.width, hh = frend.rc.height;
 let container = new PIXI.Container();
-const spr = new PIXI.Sprite(gtx);
-let colorMatrix = new PIXI.filters.ColorMatrixFilter();
-colorMatrix.enabled = true;
-colorMatrix.negative();
-spr.filters = [colorMatrix];
- window.qqq =colorMatrix;
- window.ss = spr;
+const spr = frend.ospr;//new PIXI.Sprite(gtx);
+// window.ss = spr;
 
 //spr.width = frw
 //spr.height = frh
@@ -266,8 +291,8 @@ document.getElementById('revert').addEventListener('click', (ev) => {
 document.getElementById('skip').addEventListener('blur', (ev) => {
 	frend.skip_iters = parseInt(ev.target.value);
 })
-document.getElementById('darkness').addEventListener('blur', (ev) => {
-	frend.darkness = parseInt(ev.target.value);
+document.getElementById('darkness').addEventListener('input', (ev) => {
+	frend.set_darkness(parseFloat(Math.pow(2, ev.target.value)));
 })
 document.getElementById('iters').addEventListener('blur', (ev) => {
 	frend.iters = parseInt(ev.target.value);
@@ -275,9 +300,15 @@ document.getElementById('iters').addEventListener('blur', (ev) => {
 
 const aaa = {'x0': 'x', 'y0': 'y', 'w': 'width', 'h': 'height'}
 for(let k in aaa) {
-	const v = aaa		[k];
-	document.getElementById(k).addEventListener('blur', (ev) => {
-		console.log(v, ev.target.value);
+	const v = aaa[k];
+	let orig_v = null;
+	let elem = document.getElementById(k);
+	elem.addEventListener('focus', (ev) => {
+		orig_v = ev.target.value;
+	});
+	elem.addEventListener('blur', (ev) => {
+		if(orig_v == ev.target.value) return;
+		orig_v = null;
 		frend.f_dim[v] = parseFloat(ev.target.value);
 		set_wind(frend.f_dim)
 	});
