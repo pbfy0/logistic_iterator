@@ -74,6 +74,16 @@ const functions = {
 		bounds: new PIXI.Rectangle(-5, 5, 35, -15),
 		desc: "C * x * e^x"
 	},
+	'Tent': {
+		fn: function (ex) {
+			let prev = 0.5;
+			return function() {
+				return prev = ex * (.5-Math.abs(prev-.5));//(prev <= .5 ? prev : 1-prev);
+			}
+		},
+		bounds: new PIXI.Rectangle(0, 1.0, 2, -1.01),
+		desc: "C * (.5-abs(x-.5))"//"C * (x<.5?x:1-x)"
+	}
 }
 
 const default_fn = 'Logistic';
@@ -254,7 +264,7 @@ v_axis.cnt.position.x = frw;
 app.stage.addChild(v_axis.cnt);
 v_axis.redraw();
 
-window.v_a = v_axis; window.h_a = h_axis;
+//window.v_a = v_axis; window.h_a = h_axis;
 
 function select_fn(name) {
 	const o = functions[name];
@@ -263,11 +273,11 @@ function select_fn(name) {
 	default_dim = o.bounds;
 	set_wind(default_dim);
 }
-window.sf = select_fn;
+//window.sf = select_fn;
 select_fn(default_fn);
 //frend.f_dim = default_dim.clone();
 //frend.fn = f;
-window.f = frend;
+//window.f = frend;
 //const gtx = frend.otex;
 const ww = frend.rc.width, hh = frend.rc.height;
 const spr = frend.ospr;//new PIXI.Sprite(gtx);
@@ -309,7 +319,7 @@ function set_wind(w) {
 	v_axis.redraw();
 	frend.redraw();
 }
-window.sw = set_wind
+//window.sw = set_wind
 function upd_rect(pt, w, h) {
 	//let g = new PIXI.Graphics();
 	gfx.clear()
@@ -362,11 +372,24 @@ spr.on('rightclick', (ev) => {
 	clb.addEventListener('click', (ev) => { clear_iters(); });
 	hhe.appendChild(clb);
 	for(let i = 0; i < frend.skip_iters; i++) iter();
-	for(let i = 0; i < frend.iters; i++) {
+	const first = iter();
+	let ai = (i) => {
 		const c = document.createElement('li');
 		c.textContent = iter().toFixed(y_exp);
 		dd.appendChild(c);
 	}
+	ai(first);
+	let cl = -1;
+	for(let i = 0; i < frend.iters-1; i++) {
+		const a = iter();
+		if(cl == -1 && a === first) {
+			cl = i + 1;
+		}
+		ai(a);
+	}
+	const cle = document.createElement('div')
+	cle.textContent = cl == -1 ? 'No cycle found' : 'Cycle length: ' + cl
+	hhe.appendChild(cle);
 })
 app.view.addEventListener('contextmenu', (ev) => { ev.preventDefault(); return false; });
 let wind_queue = [];
