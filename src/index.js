@@ -1,22 +1,108 @@
 import * as PIXI from "pixi.js"
 
-function f(ex) {
-	let prev = .5;
-	return function() {
-		return prev = ex * prev * (1 - prev);
-	}
+
+
+const functions = {
+	'Quadratic': {
+		fn: function (ex) {
+			let prev = 0;
+			return function() {
+				return prev = prev * prev + ex;
+			}
+		},
+		bounds: new PIXI.Rectangle(-2, 2, 2.25, -4),
+		desc: "x^2 + C"
+	},
+	'Logistic': {
+		fn: function (ex) {
+			let prev = .5;
+			return function() {
+				return prev = ex * prev * (1 - prev);
+			}
+		},
+		bounds: new PIXI.Rectangle(2, 1, 2, -1),
+		desc: "C * x * (1-x)"
+	},
+	'Cubic': {
+		fn: function (ex) {
+			let prev = 1;
+			return function() {
+				return prev = ex * prev * (1 - prev*prev / 3);
+			}
+		},
+		bounds: new PIXI.Rectangle(-3, 2, 6, -4),
+		desc: "C * x * (1 - x^2 /3)"
+	},
+	'Quartic': {
+		fn: function (ex) {
+			let prev = -1;
+			return function() {
+				const p2 = prev * prev;
+				return prev = ex * p2 * (2 - p2);
+			}
+		},
+		bounds: new PIXI.Rectangle(-2, 1.4, 4, -2.8),
+		desc: "C * x^2 * (2 - x^2)"
+	},
+	'Sine': {
+		fn: function (ex) {
+			let prev = Math.PI / 2;
+			return function() {
+				return prev = ex * Math.sin(prev);
+			}
+		},
+		bounds: new PIXI.Rectangle(-Math.PI * 3, Math.PI * 3, Math.PI * 6, -Math.PI * 6),
+		desc: "C * sin(x)"
+	},
+	'Cosine': {
+		fn: function (ex) {
+			let prev = 0;
+			return function() {
+				return prev = ex * Math.cos(prev);
+			}
+		},
+		bounds: new PIXI.Rectangle(-Math.PI * 3, Math.PI * 3, Math.PI * 6, -Math.PI * 6),
+		desc: "C * cos(x)"
+	},
+	'Exponential': {
+		fn: function (ex) {
+			let prev = -1;
+			return function() {
+				return prev = ex * prev * Math.exp(prev);
+			}
+		},
+		bounds: new PIXI.Rectangle(-5, 5, 35, -15),
+		desc: "C * x * e^x"
+	},
 }
 
-/*function f(ex) {
-	let prev = 0.5;
-	return function() {
-		return prev = ex * Math.sin(prev);
-	}
-}*/
+const default_fn = 'Logistic';
+
+const selector = document.getElementById('chooser');
+for(let k in functions) {
+	const e = document.createElement('option');
+	const v = functions[k];
+	e.value = k;
+	e.textContent = k + ' (' + v.desc + ')'
+	selector.appendChild(e);
+}
+
+selector.value = default_fn;
+
+selector.addEventListener('change', (ev) => {
+	select_fn(ev.target.value);
+});
+
 
 const log10abs = (x) => Math.log10(Math.abs(x));
-const default_dim = new PIXI.Rectangle(0, 1, 4, -1);
-//const default_dim = new PIXI.Rectangle(-Math.PI * 3, -Math.PI * 3, Math.PI * 6, Math.PI * )
+
+const x0dom = document.getElementById('x0')
+const y0dom = document.getElementById('y0')
+const x1dom = document.getElementById('x1')
+const y1dom = document.getElementById('y1')
+
+//const default_dim = 
+let default_dim;
 class Axis {
 	constructor({min_divs, max_divs, f_min, f_max, vert, size}) {
 		this.min_divs = min_divs;
@@ -45,17 +131,18 @@ class Axis {
 		grf.beginFill(0x202020, 1)
 		const a = [Math.log10(5), Math.log10(2), 0]
 		const gradexp = -log10abs(w / 10);
-		const ip = gradexp | 0, fp = gradexp % 1;
+		const ip = Math.floor(gradexp), fp = gradexp - ip;
 		const rgxp = ip + a.find((x) => x <= fp)
 		const gradation = Math.pow(10, -rgxp) * (w < 0 ? -1 : 1);
 		const first = Math.ceil(f_min / gradation) * gradation;
 		const n = Math.floor((f_max - first) / gradation) + 1;//(w % gradation == 0);
-		console.log(f_min, f_max, gradation, first, n);
+		//console.log(f_min, f_max, gradation, first, n);
+		const digits = Math.max(0, Math.ceil(rgxp));
 		for(let i = 0, x = first; i < n; i++, x += gradation) {
 			const dxp = (x - f_min) * this.size / w;
-			console.log(i, x, dxp, x, f_min, this.size, w);
+			//console.log(i, x, dxp, x, f_min, this.size, w);
 			this.drawRect(dxp, 0, 2, 10);
-			const txt = new PIXI.Text(x.toFixed(Math.ceil(rgxp)));
+			const txt = new PIXI.Text(x.toFixed(digits), {fontSize: 18});
 			/*if(!this.vert) */txt.rotation = Math.PI / 8 - this.vert * Math.PI / 2;
 			this.setPos(txt.position, dxp, 12);
 			txt.anchor.y = 0.5
@@ -69,7 +156,7 @@ class Axis {
 
 
 class FunctionRenderer {
-	constructor({r_dim, f_dim, fn=f, skip_iters = 1000, iters = 3000, darkness = 32}) {
+	constructor({r_dim, f_dim, fn, skip_iters = 1000, iters = 3000, darkness = 32}) {
 		const rc = document.createElement('canvas');
 		rc.width = r_dim.x;
 		rc.height = r_dim.y;
@@ -89,13 +176,13 @@ class FunctionRenderer {
 		
 		this.skip_iters = skip_iters
 		this.iters = iters
-		this.fn = f
+		this.fn = fn
 		this.f_dim = f_dim
 		this._sd(darkness);
 		
 		this.ctx = this.rc.getContext('2d')
 		
-		this.redraw()
+		//this.redraw()
 	}
 	
 	_sd(d){ 
@@ -124,6 +211,7 @@ class FunctionRenderer {
 		this.ctx.clearRect(0, 0, this.rc.width, this.rc.height);
 		const id = this.ctx.createImageData(this.rc.width, this.rc.height);
 		const ww = this.rc.width, hh = this.rc.height;
+		console.log(rect);
 		//for(let i = rect.x; i <= rect.x+rect.width; i+=(rect.width/ww)) {
 		for(let cc = 0, i = rect.x; cc < ww; cc++, i += rect.width / ww) {
 			//const i = rect.x + rect.width * v / ww;
@@ -153,9 +241,32 @@ const app = new PIXI.Application(cc.x - 180, cc.y - 50, {backgroundColor: 0xffff
 document.getElementById('cc').appendChild(app.view);
 app.view.style.width = app.renderer.width / window.devicePixelRatio + "px"
 
-const frw = (app.renderer.width - 100), frh = (app.renderer.height - 100);
+const frw = (app.renderer.width - 80), frh = (app.renderer.height - 80);
 console.log(cc, app.renderer.width, app.renderer.height);
-const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2), f_dim: default_dim.clone()});
+const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2)});
+
+const h_axis = new Axis({vert: false, size: frw});
+h_axis.cnt.position.y = frh;
+app.stage.addChild(h_axis.cnt);
+h_axis.redraw();
+const v_axis = new Axis({vert: true, size: frh});
+v_axis.cnt.position.x = frw;
+app.stage.addChild(v_axis.cnt);
+v_axis.redraw();
+
+window.v_a = v_axis; window.h_a = h_axis;
+
+function select_fn(name) {
+	const o = functions[name];
+	console.log(o);
+	frend.fn = o.fn;
+	default_dim = o.bounds;
+	set_wind(default_dim);
+}
+window.sf = select_fn;
+select_fn(default_fn);
+//frend.f_dim = default_dim.clone();
+//frend.fn = f;
 window.f = frend;
 //const gtx = frend.otex;
 const ww = frend.rc.width, hh = frend.rc.height;
@@ -168,18 +279,7 @@ spr.interactive = true;
 app.stage.addChild(spr);
 app.stage.interactive = true;
 
-const h_axis = new Axis({f_min: default_dim.x, f_max: default_dim.x + default_dim.width, vert: false, size: frw});
-h_axis.cnt.position.y = frh;
-app.stage.addChild(h_axis.cnt);
-h_axis.redraw();
-const v_axis = new Axis({f_min: default_dim.y, f_max: default_dim.y + default_dim.height, vert: true, size: frh});
-v_axis.cnt.position.x = frw;
-app.stage.addChild(v_axis.cnt);
-v_axis.redraw();
-
-window.v_a = v_axis; window.h_a = h_axis;
-
-const tx = new PIXI.Text();
+const tx = new PIXI.Text(null, {fontSize: 20});
 tx.position.x = 10;
 tx.position.y = 10;
 app.stage.addChild(tx);
@@ -190,10 +290,6 @@ let final_p = null;
 const gfx = new PIXI.Graphics();
 app.stage.addChild(gfx);
 
-const x0dom = document.getElementById('x0')
-const y0dom = document.getElementById('y0')
-const x1dom = document.getElementById('x1')
-const y1dom = document.getElementById('y1')
 function set_domwind() {
 	x0dom.value = frend.f_dim.x
 	y0dom.value = frend.f_dim.y
@@ -236,8 +332,8 @@ spr.on('pointermove', (ev) => {
 })
 spr.on('pointermove', (ev) => {
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
-	const x_exp = -log10abs(frend.f_dim.width) + 3;
-	const y_exp = -log10abs(frend.f_dim.height) + 3;
+	const x_exp = Math.max(-log10abs(frend.f_dim.width) + 3, 0);
+	const y_exp = Math.max(-log10abs(frend.f_dim.height) + 3, 0);
 	tx.text = '(' + pos.x.toFixed(x_exp) + ', ' + pos.y.toFixed(y_exp) + ')';
 })
 const hhe = document.getElementById('hh')
@@ -251,8 +347,8 @@ spr.on('rightclick', (ev) => {
 	console.log(ev.data.originalEvent);
 	//ev.data.originalEvent.preventDefault();
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
-	const x_exp = -log10abs(frend.f_dim.width) + 5;
-	const y_exp = -log10abs(frend.f_dim.height) + 5;
+	const x_exp = Math.max(-log10abs(frend.f_dim.width) + 5, 0);
+	const y_exp = Math.max(-log10abs(frend.f_dim.height) + 5, 0);
 	clear_iters();
 	/*for(let i of dd.children) {
 		dd.removeChild(i);
@@ -299,6 +395,7 @@ document.getElementById('reset').addEventListener('click', (ev) => {
 	set_wind(default_dim.clone());
 })
 document.getElementById('redraw').addEventListener('click', (ev) => {
+	console.log(frend.f_dim);
 	set_wind(frend.f_dim);
 })
 document.getElementById('revert').addEventListener('click', (ev) => {
@@ -332,9 +429,9 @@ function add_listener(elem, setter) {
 }
 //const pt_tl = new PIXI.Point(default_dim.x, default_dim.y);
 //const pt_br = new PIXI.Point(pt_tl.x + default_dim.width, pt_tl.y + default_dim.height);
-add_listener(x0dom, (v) => { frend.f_dim.width += v - frend.f_dim.x; frend.f_dim.x = v; });
+add_listener(x0dom, (v) => { frend.f_dim.width -= v - frend.f_dim.x; frend.f_dim.x = v; });
 add_listener(x1dom, (v) => { frend.f_dim.width = v - frend.f_dim.x; });
-add_listener(y0dom, (v) => { frend.f_dim.height += v - frend.f_dim.y; frend.f_dim.y = v; });
+add_listener(y0dom, (v) => { frend.f_dim.height -= v - frend.f_dim.y; frend.f_dim.y = v; });
 add_listener(y1dom, (v) => { frend.f_dim.height = v - frend.f_dim.y; });
 /*for(let k in aaa) {
 	const v = aaa[k];
