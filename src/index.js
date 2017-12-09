@@ -7,6 +7,8 @@ function f(ex) {
 	}
 }
 
+let log10abs = (x) => Math.log10(Math.abs(x));
+const default_dim = new PIXI.Rectangle(0, 1, 4, -1);
 class Axis {
 	constructor({min_divs, max_divs, f_min, f_max, vert, size}) {
 		this.min_divs = min_divs;
@@ -34,15 +36,16 @@ class Axis {
 		grf.clear()
 		grf.beginFill(0x202020, 1)
 		const a = [Math.log10(5), Math.log10(2), 0]
-		const gradexp = -Math.log10(w / 10);
+		const gradexp = -log10abs(w / 10);
 		const ip = gradexp | 0, fp = gradexp % 1;
 		const rgxp = ip + a.find((x) => x <= fp)
-		const gradation = Math.pow(10, -rgxp);
+		const gradation = Math.pow(10, -rgxp) * (w < 0 ? -1 : 1);
 		const first = Math.ceil(f_min / gradation) * gradation;
-		const n = Math.floor(w / gradation);
-		console.log(gradation, first, n);
+		const n = Math.floor(w / gradation) + (w % gradation == 0);
+		console.log(f_min, f_max, gradation, first, n);
 		for(let i = 0, x = first; i < n; i++, x += gradation) {
 			const dxp = (x - f_min) * this.size / w;
+			console.log(i, x, dxp, x, f_min, this.size, w);
 			this.drawRect(dxp, 0, 2, 10);
 			const txt = new PIXI.Text(x.toFixed(Math.ceil(rgxp)));
 			/*if(!this.vert) */txt.rotation = Math.PI / 8 - this.vert * Math.PI / 2;
@@ -143,7 +146,7 @@ app.view.style.width = app.renderer.width / window.devicePixelRatio + "px"
 
 const frw = (app.renderer.width - 100), frh = (app.renderer.height - 100);
 console.log(cc, app.renderer.width, app.renderer.height);
-const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2), f_dim: new PIXI.Rectangle(0, 0, 4, 1)});
+const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2), f_dim: default_dim.clone()});
 window.f = frend;
 //const gtx = frend.otex;
 const ww = frend.rc.width, hh = frend.rc.height;
@@ -161,11 +164,11 @@ container.scale.x = container.scale.y = 0.5;
 app.stage.addChild(container);
 app.stage.interactive = true;
 
-const h_axis = new Axis({f_min: 0, f_max: 4, vert: false, size: frw});
+const h_axis = new Axis({f_min: default_dim.x, f_max: default_dim.x + default_dim.width, vert: false, size: frw});
 h_axis.cnt.position.y = frh;
 app.stage.addChild(h_axis.cnt);
 h_axis.redraw();
-const v_axis = new Axis({f_min: 0, f_max: 1, vert: true, size: frh});
+const v_axis = new Axis({f_min: default_dim.y, f_max: default_dim.y + default_dim.height, vert: true, size: frh});
 v_axis.cnt.position.x = frw;
 app.stage.addChild(v_axis.cnt);
 v_axis.redraw();
@@ -206,6 +209,7 @@ function set_wind(w) {
 	v_axis.redraw();
 	frend.redraw();
 }
+window.sw = set_wind
 function upd_rect(pt, w, h) {
 	//let g = new PIXI.Graphics();
 	gfx.clear()
@@ -228,8 +232,8 @@ spr.on('pointermove', (ev) => {
 })
 spr.on('pointermove', (ev) => {
 	let pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
-	let x_exp = -Math.log10(frend.f_dim.width) + 3;
-	let y_exp = -Math.log10(frend.f_dim.height) + 3;
+	let x_exp = -log10abs(frend.f_dim.width) + 3;
+	let y_exp = -log10abs(frend.f_dim.height) + 3;
 	tx.text = '(' + pos.x.toFixed(x_exp) + ', ' + pos.y.toFixed(y_exp) + ')';
 })
 const label = document.getElementById('label')
@@ -238,8 +242,8 @@ spr.on('rightclick', (ev) => {
 	//ev.data.originalEvent.preventDefault();
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
 	const dd = document.getElementById('cis')
-	const x_exp = -Math.log10(frend.f_dim.width) + 5;
-	const y_exp = -Math.log10(frend.f_dim.height) + 5;
+	const x_exp = -log10abs(frend.f_dim.width) + 5;
+	const y_exp = -log10abs(frend.f_dim.height) + 5;
 	let ch;
 	while(ch = dd.lastChild) dd.removeChild(ch);
 	/*for(let i of dd.children) {
@@ -278,7 +282,7 @@ document.body.addEventListener('pointerup', (ev) => {
 })
 document.getElementById('reset').addEventListener('click', (ev) => {
 	wind_queue = [];
-	set_wind(new PIXI.Rectangle(0, 0, 4, 1));
+	set_wind(default_dim.clone());
 })
 document.getElementById('redraw').addEventListener('click', (ev) => {
 	frend.redraw();
@@ -310,6 +314,6 @@ for(let k in aaa) {
 		if(orig_v == ev.target.value) return;
 		orig_v = null;
 		frend.f_dim[v] = parseFloat(ev.target.value);
-		set_wind(frend.f_dim)
+		//set_wind(frend.f_dim)
 	});
 }
