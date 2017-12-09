@@ -116,7 +116,9 @@ class FunctionRenderer {
 		this.ctx.clearRect(0, 0, this.rc.width, this.rc.height);
 		let id = this.ctx.createImageData(this.rc.width, this.rc.height);
 		const ww = this.rc.width, hh = this.rc.height;
-		for(let i = rect.x; i <= rect.x+rect.width; i+=(rect.width/ww)) {
+		//for(let i = rect.x; i <= rect.x+rect.width; i+=(rect.width/ww)) {
+		for(let v = 0, i = rect.x; v < ww; v++, i += rect.width / ww) {
+			//const i = rect.x + rect.width * v / ww;
 			const it = this.fn(i);
 			const x = (i - rect.x) / rect.width;
 			const xx = (x * ww) | 0;
@@ -131,7 +133,6 @@ class FunctionRenderer {
 			}
 		}
 		this.ctx.putImageData(id, 0, 0);
-		this.r.clear(0xffffff);
 		this.tex.update();
 		this.r.render(this.spr);
 		this.otex.update();
@@ -285,7 +286,7 @@ document.getElementById('reset').addEventListener('click', (ev) => {
 	set_wind(default_dim.clone());
 })
 document.getElementById('redraw').addEventListener('click', (ev) => {
-	frend.redraw();
+	set_wind(frend.f_dim);
 })
 document.getElementById('revert').addEventListener('click', (ev) => {
 	const v = wind_queue.pop();
