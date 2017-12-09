@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Getting Started</title>
+		<title>Logistic iterator</title>
 		<style>
 			body { margin: 0; }
 			/*canvas { width: 100%; height: 100% }*/
@@ -11,18 +11,20 @@
 	<body>
 		<div>
 			<button id="reset">Reset view</button>
-			Skip iterations: <input type="text" id="skip" value="1000" size="6" />
-			Actual iterations: <input type="text" id="iters" value="3000" size="6" />
+			Iterations - 
+			Skip: <input type="text" id="skip" value="1000" size="6" />
+			Visible: <input type="text" id="iters" value="3000" size="6" />
 			Darkness: <input type="range" min="-2" max="8" value="5" step="any" id="darkness">
 			<button id="redraw">Redraw</button>
 			<button id="revert">Zoom out</button>
-			Window: (<input type="text" id="x0" size="8" />,<input type="text" id="y0" size="8" />) × (<input type="text" id="w" size="8" />,<input type="text" id="h" size="8" />)
+			Window - C: (<input type="text" id="x0" size="8" />,<input type="text" id="x1" size="8" />) Y: (<input type="text" id="y1" size="8" />,<input type="text" id="y0" size="8" />)
 		</div>
 		<div style="display: table-row">
 			<div id="cc" style="display:table-cell; vertical-align: top"></div>
 				<div style="display: table-cell; vertical-align: top">
-				<span id="label"></span>
-				<ul id="cis" style="max-height: 80vh; overflow-x: auto; overflow-y: visible; padding-left: 1em"></div>
+				<div id="hh"></div>
+				<ul id="cis" style="max-height: 80vh; overflow-x: auto; overflow-y: visible; padding-left: 1em">
+				</div>
 			</div>
 		</div>
 		<script src="bundle.js"></script>

@@ -7,8 +7,16 @@ function f(ex) {
 	}
 }
 
-let log10abs = (x) => Math.log10(Math.abs(x));
+/*function f(ex) {
+	let prev = 0.5;
+	return function() {
+		return prev = ex * Math.sin(prev);
+	}
+}*/
+
+const log10abs = (x) => Math.log10(Math.abs(x));
 const default_dim = new PIXI.Rectangle(0, 1, 4, -1);
+//const default_dim = new PIXI.Rectangle(-Math.PI * 3, -Math.PI * 3, Math.PI * 6, Math.PI * )
 class Axis {
 	constructor({min_divs, max_divs, f_min, f_max, vert, size}) {
 		this.min_divs = min_divs;
@@ -41,7 +49,7 @@ class Axis {
 		const rgxp = ip + a.find((x) => x <= fp)
 		const gradation = Math.pow(10, -rgxp) * (w < 0 ? -1 : 1);
 		const first = Math.ceil(f_min / gradation) * gradation;
-		const n = Math.floor(w / gradation) + (w % gradation == 0);
+		const n = Math.floor((f_max - first) / gradation) + 1;//(w % gradation == 0);
 		console.log(f_min, f_max, gradation, first, n);
 		for(let i = 0, x = first; i < n; i++, x += gradation) {
 			const dxp = (x - f_min) * this.size / w;
@@ -62,7 +70,7 @@ class Axis {
 
 class FunctionRenderer {
 	constructor({r_dim, f_dim, fn=f, skip_iters = 1000, iters = 3000, darkness = 32}) {
-		let rc = document.createElement('canvas');
+		const rc = document.createElement('canvas');
 		rc.width = r_dim.x;
 		rc.height = r_dim.y;
 		this.r = PIXI.autoDetectRenderer({width: r_dim.x, height: r_dim.y, transparent: true});
@@ -114,22 +122,22 @@ class FunctionRenderer {
 	redraw() {
 		const rect = this.f_dim
 		this.ctx.clearRect(0, 0, this.rc.width, this.rc.height);
-		let id = this.ctx.createImageData(this.rc.width, this.rc.height);
+		const id = this.ctx.createImageData(this.rc.width, this.rc.height);
 		const ww = this.rc.width, hh = this.rc.height;
 		//for(let i = rect.x; i <= rect.x+rect.width; i+=(rect.width/ww)) {
-		for(let v = 0, i = rect.x; v < ww; v++, i += rect.width / ww) {
+		for(let cc = 0, i = rect.x; cc < ww; cc++, i += rect.width / ww) {
 			//const i = rect.x + rect.width * v / ww;
 			const it = this.fn(i);
 			const x = (i - rect.x) / rect.width;
 			const xx = (x * ww) | 0;
 			for(let j = 0; j < this.skip_iters; j++) it();
 			for(let j = 0; j < this.iters; j++) {
-				let v = it();
+				const v = it();
 				const y = (v - rect.y) / rect.height;
+				if (y < 0 || y > 1) continue;
 				const yy = (y * hh) | 0;
-				if (yy < 0 || yy > ww) continue;
 				const ii = (yy*ww+xx)*4;
-				id.data[ii+3] += 1;//dk;
+				id.data[ii+3]++;//dk;
 			}
 		}
 		this.ctx.putImageData(id, 0, 0);
@@ -151,18 +159,13 @@ const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2), f_d
 window.f = frend;
 //const gtx = frend.otex;
 const ww = frend.rc.width, hh = frend.rc.height;
-let container = new PIXI.Container();
 const spr = frend.ospr;//new PIXI.Sprite(gtx);
 // window.ss = spr;
 
-//spr.width = frw
-//spr.height = frh
+spr.width = frw
+spr.height = frh
 spr.interactive = true;
-console.log(spr.scale.y);
-
-container.addChild(spr);
-container.scale.x = container.scale.y = 0.5;
-app.stage.addChild(container);
+app.stage.addChild(spr);
 app.stage.interactive = true;
 
 const h_axis = new Axis({f_min: default_dim.x, f_max: default_dim.x + default_dim.width, vert: false, size: frw});
@@ -189,13 +192,13 @@ app.stage.addChild(gfx);
 
 const x0dom = document.getElementById('x0')
 const y0dom = document.getElementById('y0')
-const wdom = document.getElementById('w')
-const hdom = document.getElementById('h')
+const x1dom = document.getElementById('x1')
+const y1dom = document.getElementById('y1')
 function set_domwind() {
 	x0dom.value = frend.f_dim.x
 	y0dom.value = frend.f_dim.y
-	wdom.value = frend.f_dim.width
-	hdom.value = frend.f_dim.height
+	x1dom.value = frend.f_dim.width + frend.f_dim.x
+	y1dom.value = frend.f_dim.height + frend.f_dim.y
 }
 set_domwind();
 
@@ -228,30 +231,40 @@ spr.on('pointerdown', (ev) => {
 spr.on('pointermove', (ev) => {
 	if(initial_p == null) return;
 	final_p = ev.data.getLocalPosition(spr);
-	let lc = ev.data.global;
+	const lc = ev.data.global;
 	upd_rect(initial_pg, lc.x - initial_pg.x, lc.y - initial_pg.y);
 })
 spr.on('pointermove', (ev) => {
-	let pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
-	let x_exp = -log10abs(frend.f_dim.width) + 3;
-	let y_exp = -log10abs(frend.f_dim.height) + 3;
+	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
+	const x_exp = -log10abs(frend.f_dim.width) + 3;
+	const y_exp = -log10abs(frend.f_dim.height) + 3;
 	tx.text = '(' + pos.x.toFixed(x_exp) + ', ' + pos.y.toFixed(y_exp) + ')';
 })
-const label = document.getElementById('label')
+const hhe = document.getElementById('hh')
+const dd = document.getElementById('cis')
+function clear_iters() {
+	let ch;
+	while(ch = dd.lastChild) dd.removeChild(ch);
+	while(ch = hhe.lastChild) hhe.removeChild(ch);
+}
 spr.on('rightclick', (ev) => { 
 	console.log(ev.data.originalEvent);
 	//ev.data.originalEvent.preventDefault();
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
-	const dd = document.getElementById('cis')
 	const x_exp = -log10abs(frend.f_dim.width) + 5;
 	const y_exp = -log10abs(frend.f_dim.height) + 5;
-	let ch;
-	while(ch = dd.lastChild) dd.removeChild(ch);
+	clear_iters();
 	/*for(let i of dd.children) {
 		dd.removeChild(i);
 	}*/
 	const iter = frend.fn(pos.x);
-	label.textContent = 'Iteration at ' + pos.x.toFixed(x_exp);
+	const aa = document.createElement('div');
+	aa.textContent = 'Iteration at ' + pos.x.toFixed(x_exp);
+	hhe.appendChild(aa);
+	const clb = document.createElement('button');
+	clb.textContent = "Clear"
+	clb.addEventListener('click', (ev) => { clear_iters(); });
+	hhe.appendChild(clb);
 	for(let i = 0; i < frend.skip_iters; i++) iter();
 	for(let i = 0; i < frend.iters; i++) {
 		const c = document.createElement('li');
@@ -264,7 +277,7 @@ let wind_queue = [];
 document.body.addEventListener('pointerup', (ev) => {
 	if(!ev.isPrimary) return;
 	if(initial_p == null) return;
-	let gd = final_p;
+	const gd = final_p;
 	console.log(gd.x, gd.y);
 
 	const x0 = Math.min(initial_p.x, gd.x) / ww;
@@ -272,7 +285,7 @@ document.body.addEventListener('pointerup', (ev) => {
 	const y0 = Math.min(initial_p.y, gd.y) / hh;
 	const y1 = Math.max(initial_p.y, gd.y) / hh;
 	
-	let w = new PIXI.Rectangle(x0 * frend.f_dim.width + frend.f_dim.x, y0 * frend.f_dim.height + frend.f_dim.y, (x1 - x0) * frend.f_dim.width, (y1 - y0) * frend.f_dim.height);
+	const w = new PIXI.Rectangle(x0 * frend.f_dim.width + frend.f_dim.x, y0 * frend.f_dim.height + frend.f_dim.y, (x1 - x0) * frend.f_dim.width, (y1 - y0) * frend.f_dim.height);
 	
 	if(w.x + w.width / ww != w.x && w.height != 0) {
 		wind_queue.push(frend.f_dim);
@@ -297,17 +310,36 @@ document.getElementById('skip').addEventListener('blur', (ev) => {
 	frend.skip_iters = parseInt(ev.target.value);
 })
 document.getElementById('darkness').addEventListener('input', (ev) => {
-	frend.set_darkness(parseFloat(Math.pow(2, ev.target.value)));
+	frend.set_darkness(Math.pow(2, parseFloat(ev.target.value)));
 })
 document.getElementById('iters').addEventListener('blur', (ev) => {
 	frend.iters = parseInt(ev.target.value);
 })
 
-const aaa = {'x0': 'x', 'y0': 'y', 'w': 'width', 'h': 'height'}
-for(let k in aaa) {
+//const aaa = {'x0': 'x', 'y0': 'y', 'w': 'width', 'h': 'height'}
+function add_listener(elem, setter) {
+	let orig_v = null;
+	elem.addEventListener('focus', (ev) => {
+		orig_v = ev.target.value;
+	});
+	elem.addEventListener('blur', (ev) => {
+		if(orig_v == ev.target.value) return;
+		orig_v = null;
+		setter(parseFloat(ev.target.value));
+		//set_wind(frend.f_dim)
+	});
+
+}
+//const pt_tl = new PIXI.Point(default_dim.x, default_dim.y);
+//const pt_br = new PIXI.Point(pt_tl.x + default_dim.width, pt_tl.y + default_dim.height);
+add_listener(x0dom, (v) => { frend.f_dim.width += v - frend.f_dim.x; frend.f_dim.x = v; });
+add_listener(x1dom, (v) => { frend.f_dim.width = v - frend.f_dim.x; });
+add_listener(y0dom, (v) => { frend.f_dim.height += v - frend.f_dim.y; frend.f_dim.y = v; });
+add_listener(y1dom, (v) => { frend.f_dim.height = v - frend.f_dim.y; });
+/*for(let k in aaa) {
 	const v = aaa[k];
 	let orig_v = null;
-	let elem = document.getElementById(k);
+	const elem = document.getElementById(k);
 	elem.addEventListener('focus', (ev) => {
 		orig_v = ev.target.value;
 	});
@@ -317,4 +349,4 @@ for(let k in aaa) {
 		frend.f_dim[v] = parseFloat(ev.target.value);
 		//set_wind(frend.f_dim)
 	});
-}
+}*/
