@@ -1,92 +1,19 @@
 import * as PIXI from "pixi.js"
+import { functions } from './functions.js'
+const default_fn = 'Logistic';
+let cur_fn_name = default_fn;
 
-
-
-const functions = {
-	'Quadratic': {
-		fn: function (ex) {
-			let prev = 0;
-			return function() {
-				return prev = prev * prev + ex;
-			}
-		},
-		bounds: new PIXI.Rectangle(-2, 2, 2.25, -4),
-		desc: "x^2 + C"
-	},
-	'Logistic': {
-		fn: function (ex) {
-			let prev = .5;
-			return function() {
-				return prev = ex * prev * (1 - prev);
-			}
-		},
-		bounds: new PIXI.Rectangle(2, 1, 2, -1),
-		desc: "C * x * (1-x)"
-	},
-	'Cubic': {
-		fn: function (ex) {
-			let prev = 1;
-			return function() {
-				return prev = ex * prev * (1 - prev*prev / 3);
-			}
-		},
-		bounds: new PIXI.Rectangle(-3, 2, 6, -4),
-		desc: "C * x * (1 - x^2 /3)"
-	},
-	'Quartic': {
-		fn: function (ex) {
-			let prev = -1;
-			return function() {
-				const p2 = prev * prev;
-				return prev = ex * p2 * (2 - p2);
-			}
-		},
-		bounds: new PIXI.Rectangle(-2, 1.4, 4, -2.8),
-		desc: "C * x^2 * (2 - x^2)"
-	},
-	'Sine': {
-		fn: function (ex) {
-			let prev = Math.PI / 2;
-			return function() {
-				return prev = ex * Math.sin(prev);
-			}
-		},
-		bounds: new PIXI.Rectangle(-Math.PI * 3, Math.PI * 3, Math.PI * 6, -Math.PI * 6),
-		desc: "C * sin(x)"
-	},
-	'Cosine': {
-		fn: function (ex) {
-			let prev = 0;
-			return function() {
-				return prev = ex * Math.cos(prev);
-			}
-		},
-		bounds: new PIXI.Rectangle(-Math.PI * 3, Math.PI * 3, Math.PI * 6, -Math.PI * 6),
-		desc: "C * cos(x)"
-	},
-	'Exponential': {
-		fn: function (ex) {
-			let prev = -1;
-			return function() {
-				return prev = ex * prev * Math.exp(prev);
-			}
-		},
-		bounds: new PIXI.Rectangle(-5, 5, 35, -15),
-		desc: "C * x * e^x"
-	},
-	'Tent': {
-		fn: function (ex) {
-			let prev = 0.5;
-			return function() {
-				return prev = ex * (.5-Math.abs(prev-.5));//(prev <= .5 ? prev : 1-prev);
-			}
-		},
-		bounds: new PIXI.Rectangle(0, 1.0, 2, -1.01),
-		desc: "C * (.5-abs(x-.5))"//"C * (x<.5?x:1-x)"
-	}
+function is_le() {
+	const a = new Uint32Array(1);
+	a[0] = 1;
+	const b = new Uint8Array(a.buffer);
+	return a[0] == 1;
 }
 
-const default_fn = 'Logistic';
+const _le = is_le();
+
+import rend_worker from './renderer.worker.js'
+console.log(rend_worker);
 
 const selector = document.getElementById('chooser');
 for(let k in functions) {
@@ -196,11 +123,23 @@ class FunctionRenderer {
 	}
 	
 	_sd(d){ 
-		this.colorMatrix.matrix = 
-		[1, 0, 0, 0, 0,
-		 0, 1, 0, 0, 0,
-		 0, 0, 1, 0, 0,
-		 0, 0, 0, d, 0];
+		this.colorMatrix.matrix = is_le ? 
+		[0, 0, 0, 0, 0,
+		 0, 0, 0, 0, 0,
+		 0, 0, 0, 0, 0,	
+		 d, d * 0x100, d * 0x10000, 0, 0] : 
+		 [0, 0, 0, 0, 0,
+		 0, 0, 0, 0, 0,
+		 0, 0, 0, 0, 0,	
+		 d * 0x10000, d * 0x100, d, 0, 0];
+		/*this.colorMatrix._loadMatrix( 
+		[d, 0, 0, 0, 0,
+		 0, d, 0, 0, 0,
+		 0, 0, d, 0, 0,
+		 //0x1, 0x100, 0x10000, 0x1000000, 0], true);
+		 0, 0, 0, d, 0], true);*/
+		 //console.log(this.colorMatrix.matrix)
+		
 	}
 	
 	set_darkness(d){
@@ -216,34 +155,31 @@ class FunctionRenderer {
 		);
 	}
 	
-	redraw() {
+	redraw(cb) {
+		console.log('got redraw')
 		const rect = this.f_dim
 		this.ctx.clearRect(0, 0, this.rc.width, this.rc.height);
-		const id = this.ctx.createImageData(this.rc.width, this.rc.height);
+		const cc = navigator.hardwareConcurrency || 4;
 		const ww = this.rc.width, hh = this.rc.height;
-		console.log(rect);
-		//for(let i = rect.x; i <= rect.x+rect.width; i+=(rect.width/ww)) {
-		for(let cc = 0, i = rect.x; cc < ww; cc++, i += rect.width / ww) {
-			//const i = rect.x + rect.width * v / ww;
-			const it = this.fn(i);
-			const x = (i - rect.x) / rect.width;
-			const xx = (x * ww) | 0;
-			for(let j = 0; j < this.skip_iters; j++) it();
-			for(let j = 0; j < this.iters; j++) {
-				const v = it();
-				const y = (v - rect.y) / rect.height;
-				if (y < 0 || y > 1) continue;
-				const yy = (y * hh) | 0;
-				const ii = (yy*ww+xx)*4;
-				id.data[ii+3]++;//dk;
-			}
+		const rfrac = (ww / cc) | 0;
+		const frac = rect.width / cc;
+		const rdim = new PIXI.Point(rfrac, hh);
+		let parts_received = 0;
+		for(let i = 0, fx = 0, rx = 0; i < cc; i++, fx += frac, rx += rfrac) {
+			const rw = new rend_worker();
+			rw.addEventListener('message', (ev) => {
+				//console.log(ev.data.id);
+				this.ctx.putImageData(ev.data.id, rx, 0);
+				parts_received++;
+				if(parts_received == cc) {
+					this.tex.update();
+					this.r.render(this.spr);
+					this.otex.update();
+					if(cb) cb();
+				}
+			});
+			rw.postMessage({fdim: new PIXI.Rectangle(rect.x + fx, rect.y, frac, rect.height), rdim: rdim, fn: cur_fn_name, skip_iters: this.skip_iters, iters: this.iters, is_le: _le});
 		}
-		this.ctx.putImageData(id, 0, 0);
-		this.tex.update();
-		this.r.render(this.spr);
-		this.otex.update();
-		//this.otex = this.r.generateTexture(this.spr, PIXI.SCALE_MODES.NORMAL, 1);
-		//this.ospr.texture = this.otex;
 	}
 }
 const cc = new PIXI.Point(document.documentElement.clientWidth * window.devicePixelRatio, document.documentElement.clientHeight * window.devicePixelRatio);
@@ -252,7 +188,7 @@ document.getElementById('cc').appendChild(app.view);
 app.view.style.width = app.renderer.width / window.devicePixelRatio + "px"
 
 const frw = (app.renderer.width - 80), frh = (app.renderer.height - 80);
-console.log(cc, app.renderer.width, app.renderer.height);
+//console.log(cc, app.renderer.width, app.renderer.height);
 const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2)});
 
 const h_axis = new Axis({vert: false, size: frw});
@@ -268,13 +204,13 @@ v_axis.redraw();
 
 function select_fn(name) {
 	const o = functions[name];
-	console.log(o);
+	//console.log(o);
+	cur_fn_name = name;
 	frend.fn = o.fn;
 	default_dim = o.bounds;
 	set_wind(default_dim);
 }
 //window.sf = select_fn;
-select_fn(default_fn);
 //frend.f_dim = default_dim.clone();
 //frend.fn = f;
 //window.f = frend;
@@ -282,6 +218,13 @@ select_fn(default_fn);
 const ww = frend.rc.width, hh = frend.rc.height;
 const spr = frend.ospr;//new PIXI.Sprite(gtx);
 // window.ss = spr;
+const ltx = new PIXI.Text('Loading...');
+ltx.position.x = 10;
+ltx.position.y = 50;
+//ltx.visible = false;
+app.stage.addChild(ltx);
+
+select_fn(default_fn);
 
 spr.width = frw
 spr.height = frh
@@ -308,6 +251,7 @@ function set_domwind() {
 }
 set_domwind();
 
+
 function set_wind(w) {
 	frend.f_dim = w;
 	set_domwind();
@@ -317,7 +261,12 @@ function set_wind(w) {
 	v_axis.f_min = w.y;
 	v_axis.f_max = w.y + w.height;
 	v_axis.redraw();
-	frend.redraw();
+	spr.visible = false;
+	ltx.visible = true;
+	frend.redraw(() => {
+		spr.visible = true;
+		ltx.visible = false;
+	});
 }
 //window.sw = set_wind
 function upd_rect(pt, w, h) {
@@ -354,7 +303,6 @@ function clear_iters() {
 	while(ch = hhe.lastChild) hhe.removeChild(ch);
 }
 spr.on('rightclick', (ev) => { 
-	console.log(ev.data.originalEvent);
 	//ev.data.originalEvent.preventDefault();
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
 	const x_exp = Math.max(-log10abs(frend.f_dim.width) + 5, 0);
@@ -397,7 +345,7 @@ document.body.addEventListener('pointerup', (ev) => {
 	if(!ev.isPrimary) return;
 	if(initial_p == null) return;
 	const gd = final_p;
-	console.log(gd.x, gd.y);
+	//console.log(gd.x, gd.y);
 
 	const x0 = Math.min(initial_p.x, gd.x) / ww;
 	const x1 = Math.max(initial_p.x, gd.x) / ww;
@@ -418,12 +366,12 @@ document.getElementById('reset').addEventListener('click', (ev) => {
 	set_wind(default_dim.clone());
 })
 document.getElementById('redraw').addEventListener('click', (ev) => {
-	console.log(frend.f_dim);
+	//console.log(frend.f_dim);
 	set_wind(frend.f_dim);
 })
 document.getElementById('revert').addEventListener('click', (ev) => {
 	const v = wind_queue.pop();
-	console.log(v);
+	//console.log(v);
 	if(v !== undefined) set_wind(v);
 })
 document.getElementById('skip').addEventListener('blur', (ev) => {
@@ -450,23 +398,8 @@ function add_listener(elem, setter) {
 	});
 
 }
-//const pt_tl = new PIXI.Point(default_dim.x, default_dim.y);
-//const pt_br = new PIXI.Point(pt_tl.x + default_dim.width, pt_tl.y + default_dim.height);
+
 add_listener(x0dom, (v) => { frend.f_dim.width -= v - frend.f_dim.x; frend.f_dim.x = v; });
 add_listener(x1dom, (v) => { frend.f_dim.width = v - frend.f_dim.x; });
 add_listener(y0dom, (v) => { frend.f_dim.height -= v - frend.f_dim.y; frend.f_dim.y = v; });
 add_listener(y1dom, (v) => { frend.f_dim.height = v - frend.f_dim.y; });
-/*for(let k in aaa) {
-	const v = aaa[k];
-	let orig_v = null;
-	const elem = document.getElementById(k);
-	elem.addEventListener('focus', (ev) => {
-		orig_v = ev.target.value;
-	});
-	elem.addEventListener('blur', (ev) => {
-		if(orig_v == ev.target.value) return;
-		orig_v = null;
-		frend.f_dim[v] = parseFloat(ev.target.value);
-		//set_wind(frend.f_dim)
-	});
-}*/
