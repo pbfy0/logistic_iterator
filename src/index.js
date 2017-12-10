@@ -323,7 +323,7 @@ spr.on('rightclick', (ev) => {
 	const first = iter();
 	let ai = (i) => {
 		const c = document.createElement('li');
-		c.textContent = iter().toFixed(y_exp);
+		c.textContent = i.toFixed(y_exp);
 		dd.appendChild(c);
 	}
 	ai(first);
