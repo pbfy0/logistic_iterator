@@ -13,7 +13,6 @@ function is_le() {
 const _le = is_le();
 
 import rend_worker from './renderer.worker.js'
-console.log(rend_worker);
 
 const selector = document.getElementById('chooser');
 for(let k in functions) {
@@ -123,15 +122,22 @@ class FunctionRenderer {
 	}
 	
 	_sd(d){ 
+		/*this.colorMatrix.matrix = [
+		d, 0, 0, 0, 0,
+		0, d, 0, 0, 0,
+		0, 0, d, 0, 0,
+		0, 0, 0, 1, 0
+		];*/
+		const a = d < 0
 		this.colorMatrix.matrix = is_le ? 
 		[0, 0, 0, 0, 0,
 		 0, 0, 0, 0, 0,
 		 0, 0, 0, 0, 0,	
-		 d, d * 0x100, d * 0x10000, 0, 0] : 
+		 d, d * 0x100, d * 0x10000, 0, a] : 
 		 [0, 0, 0, 0, 0,
 		 0, 0, 0, 0, 0,
 		 0, 0, 0, 0, 0,	
-		 d * 0x10000, d * 0x100, d, 0, 0];
+		 d * 0x10000, d * 0x100, d, 0, a];
 		/*this.colorMatrix._loadMatrix( 
 		[d, 0, 0, 0, 0,
 		 0, d, 0, 0, 0,
@@ -156,7 +162,6 @@ class FunctionRenderer {
 	}
 	
 	redraw(cb) {
-		console.log('got redraw')
 		const rect = this.f_dim
 		this.ctx.clearRect(0, 0, this.rc.width, this.rc.height);
 		const cc = navigator.hardwareConcurrency || 4;
@@ -165,10 +170,17 @@ class FunctionRenderer {
 		const frac = rect.width / cc;
 		const rdim = new PIXI.Point(rfrac, hh);
 		let parts_received = 0;
-		for(let i = 0, fx = 0, rx = 0; i < cc; i++, fx += frac, rx += rfrac) {
+		let progress = 0;
+		const rend_part = (fdim, rdim, rx) => {
 			const rw = new rend_worker();
 			rw.addEventListener('message', (ev) => {
+				if(ev.data.progress) {
+					progress += ev.data.progress;
+					ltx.amount(progress / ww);
+					return;
+				}
 				//console.log(ev.data.id);
+				//console.log(rx);
 				this.ctx.putImageData(ev.data.id, rx, 0);
 				parts_received++;
 				if(parts_received == cc) {
@@ -178,7 +190,18 @@ class FunctionRenderer {
 					if(cb) cb();
 				}
 			});
-			rw.postMessage({fdim: new PIXI.Rectangle(rect.x + fx, rect.y, frac, rect.height), rdim: rdim, fn: cur_fn_name, skip_iters: this.skip_iters, iters: this.iters, is_le: _le});
+			rw.postMessage({fdim: fdim, rdim: rdim, fn: cur_fn_name, skip_iters: this.skip_iters, iters: this.iters, is_le: _le});
+		}
+		//console.log(cc);
+		{
+			let i, fx, rx;
+			for(i = 0, fx = 0, rx = 0; i < cc - 1; i++, fx += frac, rx += rfrac) {
+				//console.log(rx, rx + rdim.x);
+				rend_part(new PIXI.Rectangle(rect.x + fx, rect.y, frac, rect.height), rdim, rx);
+			}
+			//console.log(rfrac, ww - rx, rx);
+			//rend_part(new PIXI.Rectangle(rect.x + fx, rect.y, frac, rect.height), rdim, rx);
+			rend_part(new PIXI.Rectangle(rect.x + fx, rect.y, rect.width - fx, rect.height), new PIXI.Point(ww - rx, hh), rx);
 		}
 	}
 }
@@ -208,8 +231,27 @@ function select_fn(name) {
 	cur_fn_name = name;
 	frend.fn = o.fn;
 	default_dim = o.bounds;
-	set_wind(default_dim);
+	set_wind(default_dim.clone());
 }
+
+class ProgressBar {
+	constructor(w, h) {
+		this.grf = new PIXI.Graphics();
+		this.width = w;
+		this.height = h;
+		this.amount(0);
+	}
+	
+	amount(amount) {
+		this.grf.clear()
+		this.grf.beginFill(0x404040, 1);
+		this.grf.drawRect(0, 0, this.width * amount, this.height);
+		this.grf.endFill();
+		this.grf.lineStyle(1, 0x202020);
+		this.grf.drawRect(0, 0, this.width, this.height);
+	}
+}
+
 //window.sf = select_fn;
 //frend.f_dim = default_dim.clone();
 //frend.fn = f;
@@ -218,11 +260,12 @@ function select_fn(name) {
 const ww = frend.rc.width, hh = frend.rc.height;
 const spr = frend.ospr;//new PIXI.Sprite(gtx);
 // window.ss = spr;
-const ltx = new PIXI.Text('Loading...');
-ltx.position.x = 10;
-ltx.position.y = 50;
-//ltx.visible = false;
-app.stage.addChild(ltx);
+const ltx = new ProgressBar(100, 12);
+ltx.grf.position.x = frw / 2;
+ltx.grf.position.y = frh / 2;
+//ltx.grf.anchor.x = ltx.grf.anchor.y = 0.5;
+ltx.grf.visible = false;
+app.stage.addChild(ltx.grf);
 
 select_fn(default_fn);
 
@@ -249,6 +292,7 @@ function set_domwind() {
 	x1dom.value = frend.f_dim.width + frend.f_dim.x
 	y1dom.value = frend.f_dim.height + frend.f_dim.y
 }
+
 set_domwind();
 
 
@@ -262,10 +306,11 @@ function set_wind(w) {
 	v_axis.f_max = w.y + w.height;
 	v_axis.redraw();
 	spr.visible = false;
-	ltx.visible = true;
+	ltx.amount(0)
+	ltx.grf.visible = true;
 	frend.redraw(() => {
 		spr.visible = true;
-		ltx.visible = false;
+		ltx.grf.visible = false;
 	});
 }
 //window.sw = set_wind
@@ -291,8 +336,8 @@ spr.on('pointermove', (ev) => {
 })
 spr.on('pointermove', (ev) => {
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
-	const x_exp = Math.max(-log10abs(frend.f_dim.width) + 3, 0);
-	const y_exp = Math.max(-log10abs(frend.f_dim.height) + 3, 0);
+	const x_exp = Math.round(Math.max(-log10abs(frend.f_dim.width) + 3, 0));
+	const y_exp = Math.round(Math.max(-log10abs(frend.f_dim.height) + 3, 0));
 	tx.text = '(' + pos.x.toFixed(x_exp) + ', ' + pos.y.toFixed(y_exp) + ')';
 })
 const hhe = document.getElementById('hh')
@@ -305,8 +350,8 @@ function clear_iters() {
 spr.on('rightclick', (ev) => { 
 	//ev.data.originalEvent.preventDefault();
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
-	const x_exp = Math.max(-log10abs(frend.f_dim.width) + 5, 0);
-	const y_exp = Math.max(-log10abs(frend.f_dim.height) + 5, 0);
+	const x_exp = Math.round(Math.max(-log10abs(frend.f_dim.width) + 5, 0));
+	const y_exp = Math.round(Math.max(-log10abs(frend.f_dim.height) + 5, 0));
 	clear_iters();
 	/*for(let i of dd.children) {
 		dd.removeChild(i);

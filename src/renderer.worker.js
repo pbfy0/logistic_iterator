@@ -9,7 +9,7 @@ function render(rect, rdim, fn, skip_iters, iters, is_le) {
 	const ww = rdim.x, hh = rdim.y;
 	const ab = new Uint32Array(ww * hh);
 	ab.fill(is_le ? 0xff000000 : 0xff);
-	console.log(ab.buffer);
+	//console.log(ab.buffer);
 	//console.log(rect);
 	//for(let i = rect.x; i <= rect.x+rect.width; i+=(rect.width/ww)) {
 	/*for(let i = 0; i < ww*hh; i ++) {
@@ -20,15 +20,18 @@ function render(rect, rdim, fn, skip_iters, iters, is_le) {
 		//const i = rect.x + rect.width * v / ww;
 		const it = fn(i);
 		const x = (i - rect.x) / rect.width;
-		const xx = (x * ww) | 0;
+		//const xx = (x * ww) | 0;
 		for(let j = 0; j < skip_iters; j++) it();
 		for(let j = 0; j < iters; j++) {
 			const v = it();
 			const y = (v - rect.y) / rect.height;
-			if (y < 0 || y > 1) continue;
+			if (y < 0 || y >= 1) continue;
 			const yy = (y * hh) | 0;
-			const ii = (yy*ww+xx);
+			const ii = (yy*ww+cc);
 			ab[ii] += o;//dk;
+		}
+		if((cc & 127) == 127) {
+			postMessage({progress: 128})
 		}
 	}
 	const id = new ImageData(new Uint8ClampedArray(ab.buffer), ww, hh);

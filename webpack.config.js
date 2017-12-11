@@ -1,6 +1,7 @@
 const path = require('path');
 const MinifyPlugin = require("babel-minify-webpack-plugin");
-
+const babel = require('@babel/core');
+//const babel_minify = require('@babel/preset-minify');
 module.exports = {
 	entry: './src/index.js',
 	devtool: 'inline-source-map',
@@ -26,20 +27,20 @@ module.exports = {
 				use: {
 					loader: 'babel-loader',
 					options: {
-						presets: ['@babel/preset-es2015'],
-						env: {
+						presets: ['@babel/preset-env'],
+/*						env: {
 							production: {
 								presets: ['minify']
 							}
-						}
+						}*/
 					}
 				}
 			}
 		]
 	}
-	//,
-	//plugins: [
-	//    new MinifyPlugin()
-	//  ]
+/*	,
+	plugins: [
+	    new MinifyPlugin({}, {babel: babel, sourceMap: false})
+	  ]*/
 };
 
