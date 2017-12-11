@@ -386,8 +386,8 @@ spr.on('rightclick', (ev) => {
 })
 app.view.addEventListener('contextmenu', (ev) => { ev.preventDefault(); return false; });
 let wind_queue = [];
-document.body.addEventListener('pointerup', (ev) => {
-	if(!ev.isPrimary) return;
+const puf = (ev) => {
+	//if(!ev.isPrimary) r4eturn;
 	if(initial_p == null) return;
 	const gd = final_p;
 	//console.log(gd.x, gd.y);
@@ -405,7 +405,13 @@ document.body.addEventListener('pointerup', (ev) => {
 	}
 	initial_p = initial_pg = final_p = null;
 	gfx.clear()
-})
+}
+if(typeof(document.body.onpointerdown) === "undefined") {
+	document.body.addEventListener('mouseup', puf)
+} else {
+	document.body.addEventListener('pointerup', puf);
+}
+
 document.getElementById('reset').addEventListener('click', (ev) => {
 	wind_queue = [];
 	set_wind(default_dim.clone());

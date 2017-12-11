@@ -34,6 +34,7 @@ function render(rect, rdim, fn, skip_iters, iters, is_le) {
 			postMessage({progress: 128})
 		}
 	}
+	postMessage({progress: ((ww + 1) & 127) - 1});
 	const id = new ImageData(new Uint8ClampedArray(ab.buffer), ww, hh);
 	return id;
 }
