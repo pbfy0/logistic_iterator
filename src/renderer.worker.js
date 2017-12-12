@@ -16,6 +16,8 @@ function render(rect, rdim, fn, skip_iters, iters, is_le) {
 		ab[i] = 0xff000000;
 	}*/
 	const o = is_le ? 1 : 0x100;
+	//let offs = (Math.random() * 128) | 0;
+	//let oo = 0;
 	for(let cc = 0, i = rect.x; cc < ww; cc++, i += rect.width / ww) {
 		//const i = rect.x + rect.width * v / ww;
 		const it = fn(i);

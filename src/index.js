@@ -7,7 +7,7 @@ function is_le() {
 	const a = new Uint32Array(1);
 	a[0] = 1;
 	const b = new Uint8Array(a.buffer);
-	return a[0] == 1;
+	return b[0] == 1;
 }
 
 const _le = is_le();
@@ -174,7 +174,7 @@ class FunctionRenderer {
 		const rend_part = (fdim, rdim, rx) => {
 			const rw = new rend_worker();
 			rw.addEventListener('message', (ev) => {
-				if(ev.data.progress) {
+				if(ev.data.progress !== undefined) {
 					progress += ev.data.progress;
 					ltx.amount(progress / ww);
 					return;
@@ -252,18 +252,13 @@ class ProgressBar {
 	}
 }
 
-//window.sf = select_fn;
-//frend.f_dim = default_dim.clone();
-//frend.fn = f;
-//window.f = frend;
-//const gtx = frend.otex;
 const ww = frend.rc.width, hh = frend.rc.height;
-const spr = frend.ospr;//new PIXI.Sprite(gtx);
-// window.ss = spr;
+const spr = frend.ospr;
+
 const ltx = new ProgressBar(100, 12);
-ltx.grf.position.x = frw / 2;
-ltx.grf.position.y = frh / 2;
-//ltx.grf.anchor.x = ltx.grf.anchor.y = 0.5;
+ltx.grf.position.x = frw / 2 - 50;
+ltx.grf.position.y = frh / 2 - 6;
+
 ltx.grf.visible = false;
 app.stage.addChild(ltx.grf);
 
@@ -309,13 +304,14 @@ function set_wind(w) {
 	ltx.amount(0)
 	ltx.grf.visible = true;
 	frend.redraw(() => {
-		spr.visible = true;
-		ltx.grf.visible = false;
+		ltx.amount(1);
+		app.ticker.addOnce(() => {
+			spr.visible = true;
+			ltx.grf.visible = false;
+		});
 	});
 }
-//window.sw = set_wind
 function upd_rect(pt, w, h) {
-	//let g = new PIXI.Graphics();
 	gfx.clear()
 	gfx.lineStyle(1, 0xff0000);
 	gfx.drawRect(pt.x, pt.y, w, h);
@@ -348,14 +344,10 @@ function clear_iters() {
 	while(ch = hhe.lastChild) hhe.removeChild(ch);
 }
 spr.on('rightclick', (ev) => { 
-	//ev.data.originalEvent.preventDefault();
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
 	const x_exp = Math.round(Math.max(-log10abs(frend.f_dim.width) + 5, 0));
 	const y_exp = Math.round(Math.max(-log10abs(frend.f_dim.height) + 5, 0));
 	clear_iters();
-	/*for(let i of dd.children) {
-		dd.removeChild(i);
-	}*/
 	const iter = frend.fn(pos.x);
 	const aa = document.createElement('div');
 	aa.textContent = 'Iteration at ' + pos.x.toFixed(x_exp);
@@ -417,12 +409,10 @@ document.getElementById('reset').addEventListener('click', (ev) => {
 	set_wind(default_dim.clone());
 })
 document.getElementById('redraw').addEventListener('click', (ev) => {
-	//console.log(frend.f_dim);
 	set_wind(frend.f_dim);
 })
 document.getElementById('revert').addEventListener('click', (ev) => {
 	const v = wind_queue.pop();
-	//console.log(v);
 	if(v !== undefined) set_wind(v);
 })
 document.getElementById('skip').addEventListener('blur', (ev) => {
@@ -435,7 +425,6 @@ document.getElementById('iters').addEventListener('blur', (ev) => {
 	frend.iters = parseInt(ev.target.value);
 })
 
-//const aaa = {'x0': 'x', 'y0': 'y', 'w': 'width', 'h': 'height'}
 function add_listener(elem, setter) {
 	let orig_v = null;
 	elem.addEventListener('focus', (ev) => {
@@ -445,7 +434,6 @@ function add_listener(elem, setter) {
 		if(orig_v == ev.target.value) return;
 		orig_v = null;
 		setter(parseFloat(ev.target.value));
-		//set_wind(frend.f_dim)
 	});
 
 }
