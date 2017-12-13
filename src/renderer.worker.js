@@ -21,7 +21,6 @@ function render(rect, rdim, fn, skip_iters, iters, is_le) {
 	for(let cc = 0, i = rect.x; cc < ww; cc++, i += rect.width / ww) {
 		//const i = rect.x + rect.width * v / ww;
 		const it = fn(i);
-		const x = (i - rect.x) / rect.width;
 		//const xx = (x * ww) | 0;
 		for(let j = 0; j < skip_iters; j++) it();
 		for(let j = 0; j < iters; j++) {

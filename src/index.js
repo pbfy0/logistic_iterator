@@ -2,12 +2,40 @@ import * as PIXI from "pixi.js"
 import { functions } from './functions.js'
 const default_fn = 'Logistic';
 let cur_fn_name = default_fn;
-
+const oh = location.hash;
 function is_le() {
 	const a = new Uint32Array(1);
 	a[0] = 1;
 	const b = new Uint8Array(a.buffer);
 	return b[0] == 1;
+}
+
+function save_state() {
+	let state = "";
+	state += "fn=" + cur_fn_name;
+	state += "&wnd=" + frend.f_dim.x + ',' + frend.f_dim.y + ',' + frend.f_dim.width + ',' + frend.f_dim.height;
+	state += "&dk=" + (Math.log(frend._darkness) / Math.log(2)).toFixed(4);
+	state += "&sk=" + frend.skip_iters;
+	state += "&it=" + frend.iters;
+	return state;
+}
+
+function load_state(t) {
+	const m = {};
+	for(let i of t.split('&')) {
+		const k = i.split('=');
+		m[k[0]] = k[1];
+	}
+	console.log(m);
+	frend.set_darkness(Math.pow(2, parseFloat(m.dk)));
+	frend.skip_iters = parseInt(m.sk);
+	frend.iters = parseInt(m.it);
+	document.getElementById('darkness').value = m.dk;
+	document.getElementById('skip').value = m.sk;
+	document.getElementById('iters').value = m.it;
+	document.getElementById('chooser').value = m.fn;
+	const q = m.wnd.split(',');
+	select_fn(m.fn, new PIXI.Rectangle(parseFloat(q[0]), parseFloat(q[1]), parseFloat(q[2]), parseFloat(q[3])));
 }
 
 const _le = is_le();
@@ -114,6 +142,7 @@ class FunctionRenderer {
 		this.iters = iters
 		this.fn = fn
 		this.f_dim = f_dim
+		this._darkness = darkness;
 		this._sd(darkness);
 		
 		this.ctx = this.rc.getContext('2d')
@@ -149,6 +178,7 @@ class FunctionRenderer {
 	}
 	
 	set_darkness(d){
+		this._darkness = d;
 		this._sd(d);
 		this.r.render(this.spr);
 		this.otex.update();
@@ -225,13 +255,13 @@ v_axis.redraw();
 
 //window.v_a = v_axis; window.h_a = h_axis;
 
-function select_fn(name) {
+function select_fn(name, dim) {
 	const o = functions[name];
 	//console.log(o);
 	cur_fn_name = name;
 	frend.fn = o.fn;
 	default_dim = o.bounds;
-	set_wind(default_dim.clone());
+	set_wind(dim || default_dim.clone());
 }
 
 class ProgressBar {
@@ -261,9 +291,12 @@ ltx.grf.position.y = frh / 2 - 6;
 
 ltx.grf.visible = false;
 app.stage.addChild(ltx.grf);
-
-select_fn(default_fn);
-
+if(oh.length > 1) {
+	console.log(oh);
+	load_state(oh.substr(1));
+} else {
+	select_fn(default_fn);
+}
 spr.width = frw
 spr.height = frh
 spr.interactive = true;
@@ -310,6 +343,7 @@ function set_wind(w) {
 			ltx.grf.visible = false;
 		});
 	});
+	location.hash = '#' + save_state();
 }
 function upd_rect(pt, w, h) {
 	gfx.clear()
@@ -421,6 +455,9 @@ document.getElementById('skip').addEventListener('blur', (ev) => {
 document.getElementById('darkness').addEventListener('input', (ev) => {
 	frend.set_darkness(Math.pow(2, parseFloat(ev.target.value)));
 })
+document.getElementById('darkness').addEventListener('change', (ev) => {
+	location.hash = '#' + save_state();
+});
 document.getElementById('iters').addEventListener('blur', (ev) => {
 	frend.iters = parseInt(ev.target.value);
 })

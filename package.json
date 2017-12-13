@@ -12,12 +12,12 @@
   "license": "ISC",
   "devDependencies": {
     "@babel/core": "^7.0.0-beta.34",
-	"webpack-sources": "1.0.1",
     "@babel/preset-env": "^7.0.0-beta.34",
     "babel-loader": "^8.0.0-beta.0",
     "babel-minify-webpack-plugin": "^0.2.0",
-    "webpack": "^3.9.1",
-    "webpack-dev-server": "^2.9.5",
+    "webpack": "^3.10.0",
+    "webpack-dev-server": "^2.9.7",
+    "webpack-sources": "1.0.1",
     "worker-loader": "^1.1.0"
   },
   "dependencies": {
