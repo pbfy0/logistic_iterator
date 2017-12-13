@@ -30,7 +30,7 @@ function load_state(t) {
 	frend.set_darkness(Math.pow(2, parseFloat(m.dk)));
 	frend.skip_iters = parseInt(m.sk);
 	frend.iters = parseInt(m.it);
-	document.getElementById('darkness').value = m.dk;
+	darkness_dom.value = m.dk;
 	document.getElementById('skip').value = m.sk;
 	document.getElementById('iters').value = m.it;
 	document.getElementById('chooser').value = m.fn;
@@ -64,6 +64,8 @@ const x0dom = document.getElementById('x0')
 const y0dom = document.getElementById('y0')
 const x1dom = document.getElementById('x1')
 const y1dom = document.getElementById('y1')
+
+const darkness_dom = document.getElementById('darkness');
 
 //const default_dim = 
 let default_dim;
@@ -311,7 +313,20 @@ app.stage.addChild(tx);
 let initial_p = null;
 let initial_pg = null;
 let final_p = null;
+let ccp = null;
+let hfill = false;
+let vfill = false;
 const gfx = new PIXI.Graphics();
+gfx.filterArea = new PIXI.Rectangle(0, 0, frw, frh);
+gfx.visible = false;
+const cmf = new PIXI.filters.ColorMatrixFilter();
+cmf.matrix = [
+	0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0,
+	0, 0, 0, -1/4, 1/4
+]
+gfx.filters = [cmf];
 app.stage.addChild(gfx);
 
 function set_domwind() {
@@ -347,8 +362,10 @@ function set_wind(w) {
 }
 function upd_rect(pt, w, h) {
 	gfx.clear()
-	gfx.lineStyle(1, 0xff0000);
-	gfx.drawRect(pt.x, pt.y, w, h);
+	//gfx.lineStyle(1, 0xff0000);
+	gfx.beginFill(0, 1)
+	gfx.drawRect(hfill ? 0 : pt.x, vfill ? 0 : pt.y, hfill ? frw : w, vfill ? frh : h);
+	gfx.endFill();
 }
 spr.on('pointerdown', (ev) => {
 	if(!ev.data.originalEvent.isPrimary) return;
@@ -360,8 +377,10 @@ spr.on('pointerdown', (ev) => {
 })
 spr.on('pointermove', (ev) => {
 	if(initial_p == null) return;
+	if(!gfx.visible) gfx.visible = true;
 	final_p = ev.data.getLocalPosition(spr);
 	const lc = ev.data.global;
+	ccp = new PIXI.Point(lc.x - initial_pg.x, lc.y - initial_pg.y);
 	upd_rect(initial_pg, lc.x - initial_pg.x, lc.y - initial_pg.y);
 })
 spr.on('pointermove', (ev) => {
@@ -412,25 +431,41 @@ spr.on('rightclick', (ev) => {
 })
 app.view.addEventListener('contextmenu', (ev) => { ev.preventDefault(); return false; });
 let wind_queue = [];
+document.addEventListener('keydown', (ev) => {
+	if(ev.key == 'Shift') vfill = true;
+	else if(ev.key == 'Control') hfill = true;
+	else return;
+	if(ccp) upd_rect(initial_pg, ccp.x, ccp.y);
+});
+document.addEventListener('keyup', (ev) => {
+	if(ev.key == 'Shift') vfill = false;
+	else if(ev.key == 'Control') hfill = false;
+	else return;
+	if(ccp) upd_rect(initial_pg, ccp.x, ccp.y);
+});
+document.addEventListener('focus', (ev) => {
+	hfill = vfill = false;
+}, true);
 const puf = (ev) => {
 	//if(!ev.isPrimary) r4eturn;
 	if(initial_p == null) return;
 	const gd = final_p;
 	//console.log(gd.x, gd.y);
 
-	const x0 = Math.min(initial_p.x, gd.x) / ww;
-	const x1 = Math.max(initial_p.x, gd.x) / ww;
-	const y0 = Math.min(initial_p.y, gd.y) / hh;
-	const y1 = Math.max(initial_p.y, gd.y) / hh;
+	const x0 = hfill ? 0 : Math.min(initial_p.x, gd.x) / ww;
+	const x1 = hfill ? 1 : Math.max(initial_p.x, gd.x) / ww;
+	const y0 = vfill ? 0 : Math.min(initial_p.y, gd.y) / hh;
+	const y1 = vfill ? 1 : Math.max(initial_p.y, gd.y) / hh;
 	
 	const w = new PIXI.Rectangle(x0 * frend.f_dim.width + frend.f_dim.x, y0 * frend.f_dim.height + frend.f_dim.y, (x1 - x0) * frend.f_dim.width, (y1 - y0) * frend.f_dim.height);
 	
-	if(w.x + w.width / ww != w.x && w.height != 0) {
+	if(!(hfill && vfill) && w.x + w.width / ww != w.x && w.height != 0) {
 		wind_queue.push(frend.f_dim);
 		set_wind(w);
 	}
-	initial_p = initial_pg = final_p = null;
+	initial_p = initial_pg = final_p = ccp = null;
 	gfx.clear()
+	gfx.visible = false;
 }
 if(typeof(document.body.onpointerdown) === "undefined") {
 	document.body.addEventListener('mouseup', puf)
@@ -452,10 +487,10 @@ document.getElementById('revert').addEventListener('click', (ev) => {
 document.getElementById('skip').addEventListener('blur', (ev) => {
 	frend.skip_iters = parseInt(ev.target.value);
 })
-document.getElementById('darkness').addEventListener('input', (ev) => {
+darkness_dom.addEventListener('input', (ev) => {
 	frend.set_darkness(Math.pow(2, parseFloat(ev.target.value)));
 })
-document.getElementById('darkness').addEventListener('change', (ev) => {
+darkness_dom.addEventListener('change', (ev) => {
 	location.hash = '#' + save_state();
 });
 document.getElementById('iters').addEventListener('blur', (ev) => {
