@@ -88,12 +88,19 @@ class Axis {
 		else { obj.x = x; obj.y = y; }
 	}
 	
+	clear() {
+		this.cnt.removeChildren();
+		this.cnt.addChild(this.grf);
+		this.grf.clear()
+		this.grf.beginFill(0x202020, 1)
+		this.drawRect(0, 0, this.size, 3);
+		this.grf.endFill();
+	}
+	
 	redraw() {
 		const grf = this.grf, f_max = this.f_max, f_min = this.f_min;
 		const w = f_max - f_min;
-		this.cnt.removeChildren();
-		this.cnt.addChild(grf);
-		grf.clear()
+		this.clear();
 		grf.beginFill(0x202020, 1)
 		const a = [Math.log10(5), Math.log10(2), 0]
 		const gradexp = -log10abs(w / 10);
@@ -361,12 +368,14 @@ set_domwind();
 function set_wind(w) {
 	frend.f_dim = w;
 	spr.visible = false;
+	set_domwind();
 	ltx.amount(0)
 	ltx.grf.visible = true;
+	h_axis.clear();
+	v_axis.clear();
 	frend.redraw(() => {
 		ltx.amount(1);
 		app.ticker.addOnce(() => {
-			set_domwind();
 			h_axis.f_min = w.x;
 			h_axis.f_max = w.x + w.width;
 			h_axis.redraw();
@@ -419,6 +428,7 @@ function clear_iters() {
 	while(ch = hhe.lastChild) hhe.removeChild(ch);
 }
 spr.on('rightclick', (ev) => { 
+	if(vfill) return;
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
 	const x_exp = Math.round(Math.max(-log10abs(frend.f_dim.width) + 5, 0));
 	const y_exp = Math.round(Math.max(-log10abs(frend.f_dim.height) + 5, 0));
@@ -451,7 +461,7 @@ spr.on('rightclick', (ev) => {
 	cle.textContent = cl == -1 ? 'No cycle found' : 'Cycle length: ' + cl
 	hhe.appendChild(cle);
 })
-app.view.addEventListener('contextmenu', (ev) => { ev.preventDefault(); return false; });
+app.view.addEventListener('contextmenu', (ev) => { if(!vfill) { ev.preventDefault(); return false; } });
 let wind_queue = [];
 document.addEventListener('keydown', (ev) => {
 	if(ev.key == 'Shift') vfill = true;
