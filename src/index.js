@@ -3,6 +3,7 @@ import { functions } from './functions.js'
 const default_fn = 'Logistic';
 let cur_fn_name = default_fn;
 const oh = location.hash;
+const has_webgl = PIXI.utils.isWebGLSupported();
 function is_le() {
 	const a = new Uint32Array(1);
 	a[0] = 1;
@@ -26,7 +27,6 @@ function load_state(t) {
 		const k = i.split('=');
 		m[k[0]] = k[1];
 	}
-	console.log(m);
 	frend.set_darkness(Math.pow(2, parseFloat(m.dk)));
 	frend.skip_iters = parseInt(m.sk);
 	frend.iters = parseInt(m.it);
@@ -122,23 +122,22 @@ class Axis {
 
 
 class FunctionRenderer {
-	constructor({r_dim, f_dim, fn, skip_iters = 1000, iters = 3000, darkness = 32}) {
+	constructor({r_dim, f_dim, fn, skip_iters = 1000, iters = 3000, darkness = 32, renderer}) {
 		const rc = document.createElement('canvas');
 		rc.width = r_dim.x;
 		rc.height = r_dim.y;
-		this.r = PIXI.autoDetectRenderer({width: r_dim.x, height: r_dim.y, transparent: true});
+		this.rc = rc
+		this.ctx = this.rc.getContext('2d')
+		this.renderer = renderer
+		
 		this.tex = PIXI.Texture.fromCanvas(rc);
 		this.spr = new PIXI.Sprite(this.tex);
-		this.colorMatrix = new PIXI.filters.ColorMatrixFilter();
-		//this.colorMatrix.enabled = true;
-		//this.colorMatrix.negative();
-		this.spr.filters = [this.colorMatrix];
-
 		
-		this.otex = PIXI.Texture.fromCanvas(this.r.view);
-		//this.otex = null;
+		this.colorMatrix = new PIXI.filters.ColorMatrixFilter();
+		this.spr.filters = [this.colorMatrix];
+		
+		this.otex = PIXI.RenderTexture.create(rc.width, rc.height);
 		this.ospr = new PIXI.Sprite(this.otex);
-		this.rc = rc
 		
 		this.skip_iters = skip_iters
 		this.iters = iters
@@ -147,9 +146,6 @@ class FunctionRenderer {
 		this._darkness = darkness;
 		this._sd(darkness);
 		
-		this.ctx = this.rc.getContext('2d')
-		
-		//this.redraw()
 	}
 	
 	_sd(d){ 
@@ -169,21 +165,12 @@ class FunctionRenderer {
 		 0, 0, 0, 0, 0,
 		 0, 0, 0, 0, 0,	
 		 d * 0x10000, d * 0x100, d, 0, a];
-		/*this.colorMatrix._loadMatrix( 
-		[d, 0, 0, 0, 0,
-		 0, d, 0, 0, 0,
-		 0, 0, d, 0, 0,
-		 //0x1, 0x100, 0x10000, 0x1000000, 0], true);
-		 0, 0, 0, d, 0], true);*/
-		 //console.log(this.colorMatrix.matrix)
-		
 	}
 	
 	set_darkness(d){
 		this._darkness = d;
 		this._sd(d);
-		this.r.render(this.spr);
-		this.otex.update();
+		this.renderer.render(this.spr, this.otex)
 	}
 	
 	loc_to_fn(coord) {
@@ -211,40 +198,33 @@ class FunctionRenderer {
 					ltx.amount(progress / ww);
 					return;
 				}
-				//console.log(ev.data.id);
-				//console.log(rx);
 				this.ctx.putImageData(ev.data.id, rx, 0);
 				parts_received++;
 				if(parts_received == cc) {
 					this.tex.update();
-					this.r.render(this.spr);
-					this.otex.update();
+					this.renderer.render(this.spr, this.otex)
 					if(cb) cb();
 				}
 			});
 			rw.postMessage({fdim: fdim, rdim: rdim, fn: cur_fn_name, skip_iters: this.skip_iters, iters: this.iters, is_le: _le});
 		}
-		//console.log(cc);
 		{
 			let i, fx, rx;
 			for(i = 0, fx = 0, rx = 0; i < cc - 1; i++, fx += frac, rx += rfrac) {
-				//console.log(rx, rx + rdim.x);
 				rend_part(new PIXI.Rectangle(rect.x + fx, rect.y, frac, rect.height), rdim, rx);
 			}
-			//console.log(rfrac, ww - rx, rx);
-			//rend_part(new PIXI.Rectangle(rect.x + fx, rect.y, frac, rect.height), rdim, rx);
 			rend_part(new PIXI.Rectangle(rect.x + fx, rect.y, rect.width - fx, rect.height), new PIXI.Point(ww - rx, hh), rx);
 		}
 	}
 }
 const cc = new PIXI.Point(document.documentElement.clientWidth * window.devicePixelRatio, document.documentElement.clientHeight * window.devicePixelRatio);
-const app = new PIXI.Application(cc.x - 180, cc.y - 50, {backgroundColor: 0xffffff});
+const app = new PIXI.Application(cc.x - 180, cc.y - 50, {backgroundColor: 0xffffff, forceCanvas: true});
 document.getElementById('cc').appendChild(app.view);
 app.view.style.width = app.renderer.width / window.devicePixelRatio + "px"
 
 const frw = (app.renderer.width - 80), frh = (app.renderer.height - 80);
 //console.log(cc, app.renderer.width, app.renderer.height);
-const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2)});
+const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2), renderer: app.renderer});
 
 const h_axis = new Axis({vert: false, size: frw});
 h_axis.cnt.position.y = frh;
@@ -294,7 +274,6 @@ ltx.grf.position.y = frh / 2 - 6;
 ltx.grf.visible = false;
 app.stage.addChild(ltx.grf);
 if(oh.length > 1) {
-	console.log(oh);
 	load_state(oh.substr(1));
 } else {
 	select_fn(default_fn);
@@ -324,7 +303,7 @@ cmf.matrix = [
 	0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0,
-	0, 0, 0, -1/4, 1/4
+	0, 0, 0, -.2, .2
 ]
 gfx.filters = [cmf];
 app.stage.addChild(gfx);
@@ -341,19 +320,19 @@ set_domwind();
 
 function set_wind(w) {
 	frend.f_dim = w;
-	set_domwind();
-	h_axis.f_min = w.x;
-	h_axis.f_max = w.x + w.width;
-	h_axis.redraw();
-	v_axis.f_min = w.y;
-	v_axis.f_max = w.y + w.height;
-	v_axis.redraw();
 	spr.visible = false;
 	ltx.amount(0)
 	ltx.grf.visible = true;
 	frend.redraw(() => {
 		ltx.amount(1);
 		app.ticker.addOnce(() => {
+			set_domwind();
+			h_axis.f_min = w.x;
+			h_axis.f_max = w.x + w.width;
+			h_axis.redraw();
+			v_axis.f_min = w.y;
+			v_axis.f_max = w.y + w.height;
+			v_axis.redraw();
 			spr.visible = true;
 			ltx.grf.visible = false;
 		});
@@ -362,10 +341,13 @@ function set_wind(w) {
 }
 function upd_rect(pt, w, h) {
 	gfx.clear()
-	//gfx.lineStyle(1, 0xff0000);
-	gfx.beginFill(0, 1)
+	if(has_webgl) {
+		gfx.beginFill(0, 1)
+	} else {
+		gfx.lineStyle(1, 0xff0000);
+	}
 	gfx.drawRect(hfill ? 0 : pt.x, vfill ? 0 : pt.y, hfill ? frw : w, vfill ? frh : h);
-	gfx.endFill();
+	if(has_webgl) gfx.endFill();
 }
 spr.on('pointerdown', (ev) => {
 	if(!ev.data.originalEvent.isPrimary) return;
@@ -443,8 +425,13 @@ document.addEventListener('keyup', (ev) => {
 	else return;
 	if(ccp) upd_rect(initial_pg, ccp.x, ccp.y);
 });
-document.addEventListener('focus', (ev) => {
-	hfill = vfill = false;
+document.addEventListener('visibilitychange', (ev) => {
+	if(document.hidden) {
+		hfill = vfill = false;
+		initial_p = initial_pg = final_p = ccp = null;
+		gfx.clear()
+		gfx.visible = false;
+	}
 }, true);
 const puf = (ev) => {
 	//if(!ev.isPrimary) r4eturn;
@@ -487,10 +474,13 @@ document.getElementById('revert').addEventListener('click', (ev) => {
 document.getElementById('skip').addEventListener('blur', (ev) => {
 	frend.skip_iters = parseInt(ev.target.value);
 })
+let txt_darkness = null;
 darkness_dom.addEventListener('input', (ev) => {
+	txt_darkness = ev.target.value;
 	frend.set_darkness(Math.pow(2, parseFloat(ev.target.value)));
 })
 darkness_dom.addEventListener('change', (ev) => {
+	if(ev.target.value != txt_darkness) frend.set_darkness(Math.pow(2, parseFloat(ev.target.value)));
 	location.hash = '#' + save_state();
 });
 document.getElementById('iters').addEventListener('blur', (ev) => {
