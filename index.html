@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Bifurcation diagram viewer</title>
+		<style>
+			body { margin: 0; }
+			/*canvas { width: 100%; height: 100% }*/
+			li { padding-right: 1em;}
+			#c2 > button { display: block; }
+		</style>
+	</head>
+	<body>
+		<div>
+			Iterations - 
+			Skip: <input type="text" id="skip" value="1000" size="6" />
+			Visible: <input type="text" id="iters" value="3000" size="6" />
+			Darkness: <input type="range" min="-4" max="8" value="5" step="any" id="darkness">
+			Window - C: (<input type="text" id="x0" size="8" />,<input type="text" id="x1" size="8" />) x: (<input type="text" id="y1" size="8" />,<input type="text" id="y0" size="8" />)
+			<select id="chooser"></select>
+		</div>
+		<div style="display: table-row">
+			<div id="cc" style="display:table-cell; vertical-align: top"></div>
+			<div style="display: table-cell; vertical-align: top" id="c2">
+				<button id="reset">Reset view</button>
+				<button id="redraw">Redraw</button>
+				<button id="revert">Zoom out</button>
+				<div id="hh"></div>
+				<ul id="cis" style="max-height: 65vh; overflow-x: auto; overflow-y: visible; padding-left: 1em">
+			</div>
+		</div>
+		<script src="bundle.js"></script>
+	</body>
+</html>
