@@ -1,8 +1,8 @@
 import { functions } from './functions.js';
 onmessage = (e) => {
 	//console.log(e);
-	const fn = e.data.darkness !== undefined ? render_canvas : e.data.is_le ? render_le : render_be;
-	postMessage({id: fn(e.data.fdim, e.data.rdim, functions[e.data.fn].fn, e.data.skip_iters, e.data.iters, e.data.darkness)});
+	const fn = e.data.canvas ? render_canvas : e.data.is_le ? render_le : render_be;
+	postMessage({id: fn(e.data.fdim, e.data.rdim, functions[e.data.fn].fn, e.data.skip_iters, e.data.iters)});
 	close();
 }
 function render_le(rect, rdim, fn, skip_iters, iters) {
@@ -54,7 +54,7 @@ function render_be(rect, rdim, fn, skip_iters, iters) {
 }
 
 
-function render_canvas(rect, rdim, fn, skip_iters, iters, darkness) {
+function render_canvas(rect, rdim, fn, skip_iters, iters) {
 	const ww = rdim.x, hh = rdim.y;
 	const id = new ImageData(ww, hh);
 	const ab = id.data;
@@ -67,7 +67,7 @@ function render_canvas(rect, rdim, fn, skip_iters, iters, darkness) {
 			if (y < 0 || y >= 1) continue;
 			const yy = (y * hh) | 0;
 			const ii = (yy*ww+cc);
-			ab[ii*4+3]+= darkness;
+			ab[ii*4+3]++;//= darkness;
 		}
 		if((cc & 127) == 127) {
 			postMessage({progress: 128})

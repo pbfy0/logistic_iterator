@@ -177,11 +177,32 @@ class FunctionRenderer {
 	}
 	
 	set_darkness(d){
+		if(this.renderer instanceof PIXI.CanvasRenderer && d >= 1) d = d | 0;
+		const od = this._darkness
 		this._darkness = d;
-		if(this.renderer instanceof PIXI.CanvasRenderer) return;
+		if(this.renderer instanceof PIXI.CanvasRenderer) {
+			if(d > 1) {
+				this.ospr.alpha = 1;
+				if(d > od) {
+					d -= od;
+				} else {
+					if(this.otex.baseTexture._canvasRenderTarget) this.otex.baseTexture._canvasRenderTarget.context.clearRect(0, 0, this.rc.width, this.rc.height);
+				}
+				for(let i = 0; i < d; i++) {
+					this.renderer.render(this.spr, this.otex)
+				}
+			} else {
+				if(od > 1) {
+					if(this.otex.baseTexture._canvasRenderTarget) this.otex.baseTexture._canvasRenderTarget.context.clearRect(0, 0, this.rc.width, this.rc.height);
+					this.renderer.render(this.spr, this.otex)
+				}
+				this.ospr.alpha = d;
+			}
+			return;
+		} 
 		this._sd(d);
+		this.renderer.render(this.spr, this.otex)
 		//this.renderer.clearRenderTexture(this.otex)
-		this.renderer.render(this.spr, this.otex, true)
 	}
 	
 	loc_to_fn(coord) {
@@ -213,13 +234,18 @@ class FunctionRenderer {
 				parts_received++;
 				if(parts_received == cc) {
 					this.tex.update();
-					//this.renderer.clearRenderTexture(this.otex)
-					if(this.renderer instanceof PIXI.CanvasRenderer && this.otex.baseTexture._canvasRenderTarget) this.otex.baseTexture._canvasRenderTarget.context.clearRect(0, 0, this.rc.width, this.rc.height);
-					this.renderer.render(this.spr, this.otex, true)
+					if(this.renderer instanceof PIXI.CanvasRenderer) {
+						if(this.otex.baseTexture._canvasRenderTarget) this.otex.baseTexture._canvasRenderTarget.context.clearRect(0, 0, this.rc.width, this.rc.height);
+						for(let i = 0; i < Math.max(this._darkness, 1); i++) {
+							this.renderer.render(this.spr, this.otex)
+						}
+					} else {
+						this.renderer.render(this.spr, this.otex, true)
+					}
 					if(cb) cb();
 				}
 			});
-			rw.postMessage({fdim: fdim, rdim: rdim, fn: cur_fn_name, skip_iters: this.skip_iters, iters: this.iters, is_le: _le, darkness: (has_webgl ? undefined : (this._darkness | 0))});
+			rw.postMessage({fdim: fdim, rdim: rdim, fn: cur_fn_name, skip_iters: this.skip_iters, iters: this.iters, is_le: _le, canvas: !has_webgl});
 		}
 		{
 			let i, fx, rx;
@@ -497,7 +523,7 @@ darkness_dom.addEventListener('change', (ev) => {
 	if(ev.target.value != txt_darkness) frend.set_darkness(Math.pow(2, parseFloat(ev.target.value)));
 	location.hash = '#' + save_state();
 });
-if(!has_webgl) darkness_dom.min = 0;
+//if(!has_webgl) darkness_dom.min = 0;
 document.getElementById('iters').addEventListener('blur', (ev) => {
 	frend.iters = parseInt(ev.target.value);
 })
