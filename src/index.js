@@ -21,6 +21,9 @@ function save_state() {
 	return state;
 }
 
+const skip_dom = document.getElementById('skip');
+const iters_dom = document.getElementById('iters');
+
 function load_state(t) {
 	const m = {};
 	for(let i of t.split('&')) {
@@ -31,9 +34,9 @@ function load_state(t) {
 	frend.skip_iters = parseInt(m.sk);
 	frend.iters = parseInt(m.it);
 	darkness_dom.value = m.dk;
-	document.getElementById('skip').value = m.sk;
-	document.getElementById('iters').value = m.it;
-	document.getElementById('chooser').value = m.fn;
+	skip_dom.value = m.sk;
+	iters_dom.value = m.it;
+	selector.value = m.fn;
 	const q = m.wnd.split(',');
 	select_fn(m.fn, new PIXI.Rectangle(parseFloat(q[0]), parseFloat(q[1]), parseFloat(q[2]), parseFloat(q[3])));
 }
@@ -340,8 +343,8 @@ let initial_p = null;
 let initial_pg = null;
 let final_p = null;
 let ccp = null;
-let hfill = false;
-let vfill = false;
+let ctrl_pressed = false;
+let shift_pressed = false;
 const gfx = new PIXI.Graphics();
 gfx.filterArea = new PIXI.Rectangle(0, 0, frw, frh);
 gfx.visible = false;
@@ -395,7 +398,7 @@ function upd_rect(pt, w, h) {
 	} else {
 		gfx.lineStyle(1, 0xff0000);
 	}
-	gfx.drawRect(hfill ? 0 : pt.x, vfill ? 0 : pt.y, hfill ? frw : w, vfill ? frh : h);
+	gfx.drawRect(ctrl_pressed ? 0 : pt.x, shift_pressed ? 0 : pt.y, ctrl_pressed ? frw : w, shift_pressed ? frh : h);
 	if(has_webgl) gfx.endFill();
 }
 spr.on('pointerdown', (ev) => {
@@ -428,7 +431,7 @@ function clear_iters() {
 	while(ch = hhe.lastChild) hhe.removeChild(ch);
 }
 spr.on('rightclick', (ev) => { 
-	if(vfill) return;
+	if(shift_pressed) return;
 	const pos = frend.loc_to_fn(ev.data.getLocalPosition(spr))
 	const x_exp = Math.round(Math.max(-log10abs(frend.f_dim.width) + 5, 0));
 	const y_exp = Math.round(Math.max(-log10abs(frend.f_dim.height) + 5, 0));
@@ -461,23 +464,23 @@ spr.on('rightclick', (ev) => {
 	cle.textContent = cl == -1 ? 'No cycle found' : 'Cycle length: ' + cl
 	hhe.appendChild(cle);
 })
-app.view.addEventListener('contextmenu', (ev) => { if(!vfill) { ev.preventDefault(); return false; } });
+app.view.addEventListener('contextmenu', (ev) => { if(!shift_pressed) { ev.preventDefault(); return false; } });
 let wind_queue = [];
 document.addEventListener('keydown', (ev) => {
-	if(ev.key == 'Shift') vfill = true;
-	else if(ev.key == 'Control') hfill = true;
+	if(ev.key == 'Shift') shift_pressed = true;
+	else if(ev.key == 'Control') ctrl_pressed = true;
 	else return;
 	if(ccp) upd_rect(initial_pg, ccp.x, ccp.y);
 });
 document.addEventListener('keyup', (ev) => {
-	if(ev.key == 'Shift') vfill = false;
-	else if(ev.key == 'Control') hfill = false;
+	if(ev.key == 'Shift') shift_pressed = false;
+	else if(ev.key == 'Control') ctrl_pressed = false;
 	else return;
 	if(ccp) upd_rect(initial_pg, ccp.x, ccp.y);
 });
 document.addEventListener('visibilitychange', (ev) => {
 	if(document.hidden) {
-		hfill = vfill = false;
+		ctrl_pressed = shift_pressed = false;
 		initial_p = initial_pg = final_p = ccp = null;
 		gfx.clear()
 		gfx.visible = false;
@@ -489,14 +492,14 @@ const puf = (ev) => {
 	const gd = final_p;
 	//console.log(gd.x, gd.y);
 
-	const x0 = hfill ? 0 : Math.min(initial_p.x, gd.x) / ww;
-	const x1 = hfill ? 1 : Math.max(initial_p.x, gd.x) / ww;
-	const y0 = vfill ? 0 : Math.min(initial_p.y, gd.y) / hh;
-	const y1 = vfill ? 1 : Math.max(initial_p.y, gd.y) / hh;
+	const x0 = ctrl_pressed ? 0 : Math.min(initial_p.x, gd.x) / ww;
+	const x1 = ctrl_pressed ? 1 : Math.max(initial_p.x, gd.x) / ww;
+	const y0 = shift_pressed ? 0 : Math.min(initial_p.y, gd.y) / hh;
+	const y1 = shift_pressed ? 1 : Math.max(initial_p.y, gd.y) / hh;
 	
 	const w = new PIXI.Rectangle(x0 * frend.f_dim.width + frend.f_dim.x, y0 * frend.f_dim.height + frend.f_dim.y, (x1 - x0) * frend.f_dim.width, (y1 - y0) * frend.f_dim.height);
 	
-	if(!(hfill && vfill) && w.x + w.width / ww != w.x && w.height != 0) {
+	if(!(ctrl_pressed && shift_pressed) && w.x + w.width / ww != w.x && w.height != 0) {
 		wind_queue.push(frend.f_dim);
 		set_wind(w);
 	}
@@ -510,18 +513,34 @@ if(typeof(document.body.onpointerdown) === "undefined") {
 	document.body.addEventListener('pointerup', puf);
 }
 
+function default_iters() {
+	frend.skip_iters = 1000;
+	frend.iters = 3000;
+	skip_dom.value = 1000;
+	iters_dom.value = 3000;
+}
+
 document.getElementById('reset').addEventListener('click', (ev) => {
 	wind_queue = [];
+	if(shift_pressed) {
+		default_iters();
+	}
 	set_wind(default_dim.clone());
 })
 document.getElementById('redraw').addEventListener('click', (ev) => {
+	if(shift_pressed) {
+		default_iters();
+	}
 	set_wind(frend.f_dim);
 })
 document.getElementById('revert').addEventListener('click', (ev) => {
+	if(shift_pressed) {
+		default_iters();
+	}
 	const v = wind_queue.pop();
 	if(v !== undefined) set_wind(v);
 })
-document.getElementById('skip').addEventListener('blur', (ev) => {
+skip_dom.addEventListener('blur', (ev) => {
 	frend.skip_iters = parseInt(ev.target.value);
 })
 let txt_darkness = null;
@@ -534,7 +553,7 @@ darkness_dom.addEventListener('change', (ev) => {
 	location.hash = '#' + save_state();
 });
 //if(!has_webgl) darkness_dom.min = 0;
-document.getElementById('iters').addEventListener('blur', (ev) => {
+iters_dom.addEventListener('blur', (ev) => {
 	frend.iters = parseInt(ev.target.value);
 })
 
