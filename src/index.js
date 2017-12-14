@@ -155,6 +155,15 @@ class FunctionRenderer {
 		0, 0, d, 0, 0,
 		0, 0, 0, 1, 0
 		];*/
+		if(this.trippy) {
+			this.colorMatrix.matrix = [
+				d, 0, 0, 0, 0,
+				0, d, 0, 0, 0,
+				0, 0, d, 0, 0,
+				0, 0, 0, 1, 0
+			]
+			return;
+		}
 		const a = d < 0
 		this.colorMatrix.matrix = is_le ? 
 		[0, 0, 0, 0, 0,
@@ -169,8 +178,10 @@ class FunctionRenderer {
 	
 	set_darkness(d){
 		this._darkness = d;
+		if(this.renderer instanceof PIXI.CanvasRenderer) return;
 		this._sd(d);
-		this.renderer.render(this.spr, this.otex)
+		//this.renderer.clearRenderTexture(this.otex)
+		this.renderer.render(this.spr, this.otex, true)
 	}
 	
 	loc_to_fn(coord) {
@@ -202,11 +213,13 @@ class FunctionRenderer {
 				parts_received++;
 				if(parts_received == cc) {
 					this.tex.update();
-					this.renderer.render(this.spr, this.otex)
+					//this.renderer.clearRenderTexture(this.otex)
+					if(this.renderer instanceof PIXI.CanvasRenderer && this.otex.baseTexture._canvasRenderTarget) this.otex.baseTexture._canvasRenderTarget.context.clearRect(0, 0, this.rc.width, this.rc.height);
+					this.renderer.render(this.spr, this.otex, true)
 					if(cb) cb();
 				}
 			});
-			rw.postMessage({fdim: fdim, rdim: rdim, fn: cur_fn_name, skip_iters: this.skip_iters, iters: this.iters, is_le: _le});
+			rw.postMessage({fdim: fdim, rdim: rdim, fn: cur_fn_name, skip_iters: this.skip_iters, iters: this.iters, is_le: _le, darkness: (has_webgl ? undefined : (this._darkness | 0))});
 		}
 		{
 			let i, fx, rx;
@@ -218,13 +231,14 @@ class FunctionRenderer {
 	}
 }
 const cc = new PIXI.Point(document.documentElement.clientWidth * window.devicePixelRatio, document.documentElement.clientHeight * window.devicePixelRatio);
-const app = new PIXI.Application(cc.x - 180, cc.y - 50, {backgroundColor: 0xffffff, forceCanvas: true});
+const app = new PIXI.Application(cc.x - 180, cc.y - 50, {backgroundColor: 0xffffff});
 document.getElementById('cc').appendChild(app.view);
 app.view.style.width = app.renderer.width / window.devicePixelRatio + "px"
 
 const frw = (app.renderer.width - 80), frh = (app.renderer.height - 80);
 //console.log(cc, app.renderer.width, app.renderer.height);
 const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2), renderer: app.renderer});
+window.set_trippy = (v) => { frend.trippy = v; }
 
 const h_axis = new Axis({vert: false, size: frw});
 h_axis.cnt.position.y = frh;
@@ -483,6 +497,7 @@ darkness_dom.addEventListener('change', (ev) => {
 	if(ev.target.value != txt_darkness) frend.set_darkness(Math.pow(2, parseFloat(ev.target.value)));
 	location.hash = '#' + save_state();
 });
+if(!has_webgl) darkness_dom.min = 0;
 document.getElementById('iters').addEventListener('blur', (ev) => {
 	frend.iters = parseInt(ev.target.value);
 })
