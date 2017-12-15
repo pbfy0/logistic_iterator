@@ -165,7 +165,7 @@ class FunctionRenderer {
 		0, 0, d, 0, 0,
 		0, 0, 0, 1, 0
 		];*/
-		if(this.trippy) {
+		if(this.darkroom) {
 			this.colorMatrix.matrix = [
 				d, 0, 0, 0, 0,
 				0, d, 0, 0, 0,
@@ -274,7 +274,7 @@ app.view.style.width = app.renderer.width / window.devicePixelRatio + "px"
 const frw = (app.renderer.width - 80), frh = (app.renderer.height - 80);
 //console.log(cc, app.renderer.width, app.renderer.height);
 const frend = new FunctionRenderer({r_dim: new PIXI.Point(frw * 2, frh * 2), renderer: app.renderer});
-window.set_trippy = (v) => { frend.trippy = v; }
+window.set_darkroom = (v) => { frend.darkroom = v; frend.set_darkness(frend._darkness); }
 
 const h_axis = new Axis({vert: false, size: frw});
 h_axis.cnt.position.y = frh;
